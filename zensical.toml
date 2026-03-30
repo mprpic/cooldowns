@@ -1,0 +1,42 @@
+[project]
+site_name = "Dependency Cooldowns"
+site_url = "https://cooldowns.dev"
+site_description = "A guide to configuring dependency cooldowns across package managers to protect against supply chain attacks."
+site_author = "Martin Prpič"
+repo_url = "https://github.com/mprpic/cooldowns"
+extra_css = ["stylesheets/extra.css"]
+extra_javascript = ["js/no-search.js"]
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/mprpic/cooldowns"
+
+[project.theme]
+features = [
+    "content.code.copy"
+]
+favicon = "images/shield.svg"
+logo = "images/shield.svg"
+
+# Palette toggle for automatic mode
+[[project.theme.palette]]
+primary = "amber"
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+# Palette toggle for light mode
+[[project.theme.palette]]
+primary = "amber"
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+# Palette toggle for dark mode
+[[project.theme.palette]]
+primary = "amber"
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"

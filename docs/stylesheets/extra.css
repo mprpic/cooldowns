@@ -1,0 +1,7 @@
+.md-search {
+    display: none;
+}
+
+[data-md-color-scheme="slate"] .md-logo img {
+    filter: invert(1);
+}
