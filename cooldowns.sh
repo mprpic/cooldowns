@@ -34,13 +34,23 @@
 
 set -euo pipefail
 
-# Portable in-place sed. GNU sed (Linux) accepts `-i`; BSD sed (macOS) requires
-# `-i ''`. Detect once at startup.
-if sed --version >/dev/null 2>&1; then
-    SED_INPLACE=(sed -i)
-else
-    SED_INPLACE=(sed -i '')
-fi
+# All platform-specific knobs live here. Callers (and emitted wrappers) never
+# branch at invocation time.
+#   SED_INPLACE      array form of `sed -i` for the local platform
+#   date_to_epoch    YYYY-MM-DD -> epoch seconds
+#   _date_days_ago   emits a `date ...` command string for "N days ago in UTC"
+case "$OSTYPE" in
+    darwin*|*bsd*)
+        SED_INPLACE=(sed -i '')
+        date_to_epoch()   { date -j -f '%Y-%m-%d' "$1" +%s 2>/dev/null; }
+        _date_days_ago()  { echo "date -u -v-${1}d '+%Y-%m-%dT%H:%M:%SZ'"; }
+        ;;
+    *)
+        SED_INPLACE=(sed -i)
+        date_to_epoch()   { date -d "$1" +%s 2>/dev/null; }
+        _date_days_ago()  { echo "date -u -d '$1 days ago' '+%Y-%m-%dT%H:%M:%SZ'"; }
+        ;;
+esac
 
 # Extract the first `key = value` style value from a file. Tolerates an
 # optional `export ` prefix, whitespace around `=`, and surrounding quotes.
@@ -66,17 +76,6 @@ extract_kv() {
     ' "$file")
     [[ -n "$val" ]] && { printf '%s\n' "$val"; return 0; }
     return 1
-}
-
-# Portable "YYYY-MM-DD -> epoch seconds". GNU date uses `-d`, BSD date uses
-# `-j -f <format>`.
-date_to_epoch() {
-    local d="$1"
-    if date --version >/dev/null 2>&1; then
-        date -d "$d" +%s 2>/dev/null
-    else
-        date -j -f '%Y-%m-%d' "$d" +%s 2>/dev/null
-    fi
 }
 
 PROFILE_DIR="/etc/profile.d"
@@ -197,6 +196,9 @@ set_pip() {
 
     clean_previous pip "$PROFILE_SCRIPT"
 
+    local date_cmd
+    date_cmd=$(_date_days_ago "$days")
+
     cat >> "$PROFILE_SCRIPT" << SHELL
 # cooldowns:pip:start
 pip() {
@@ -205,11 +207,7 @@ pip() {
     case "\$1" in
         install|download|wheel)
             if [[ "\${pip_major:-0}" -ge 26 ]]; then
-                if date --version >/dev/null 2>&1; then
-                    cutoff=\$(date -u -d '${days} days ago' '+%Y-%m-%dT%H:%M:%SZ')
-                else
-                    cutoff=\$(date -u -v-${days}d '+%Y-%m-%dT%H:%M:%SZ')
-                fi
+                cutoff=\$($date_cmd)
                 command pip "\$1" --uploaded-prior-to "\$cutoff" "\${@:2}"
             else
                 echo "warning: pip \${pip_major:-unknown} does not support --uploaded-prior-to (need >= 26), skipping cooldown" >&2
@@ -221,8 +219,6 @@ pip() {
             ;;
     esac
 }
-# bash can export functions to subshells; zsh can't, so guard it.
-[ -n "\${BASH_VERSION:-}" ] && export -f pip
 # cooldowns:pip:end
 SHELL
     echo "pip: installed shell wrapper with ${days}-day cooldown in $PROFILE_SCRIPT"
