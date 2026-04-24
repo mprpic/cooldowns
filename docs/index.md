@@ -336,7 +336,7 @@ updates:
       semver-patch-days: 3
 ```
 
-Dependabot does exempt security updates from cooldowns, so critical CVE fixes still get PRs immediately.
+Both Renovate and Dependabot exempt security updates from cooldowns, so critical CVE fixes still get PRs immediately.
 
 ## Container images
 
