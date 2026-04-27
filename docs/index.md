@@ -30,7 +30,7 @@ makes sure you're not the one who installs it before they do.
 [An analysis of ten prominent supply chain attacks](https://blog.yossarian.net/2025/11/21/We-should-all-be-using-dependency-cooldowns)
 found that eight had exploitation windows under one week. All but one lasted under two weeks. Attackers move fast
 after compromising a project, but they also get caught fast. A three-day cooldown would have blocked most of these. In
-the August 2025 Nx npm attack, malicious code exfiltrated credentials within a 4–5 hour window before the package
+the [August 2025 Nx npm attack](https://socket.dev/blog/nx-packages-compromised), malicious code exfiltrated credentials within a 4–5 hour window before the package
 was pulled. The LiteLLM compromise mentioned above also had a window of only a few hours (first detected at 10:39 UTC,
 quarantined on PyPI at 13:38 UTC).
 
