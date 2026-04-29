@@ -34,6 +34,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Pin Node/npm on every runner (npm 11+ avoids `check` WARN for min-release-age).
+      # Linux smoke runs in Docker (isolated); macOS smoke uses host PATH, so this matters there.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Smoke test
         run: |
           set -euo pipefail
