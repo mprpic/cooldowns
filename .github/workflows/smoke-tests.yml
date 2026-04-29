@@ -1,0 +1,57 @@
+# Smoke-test cooldowns.sh (Linux + macOS). Logic: ci/smoke-test.sh
+# (fed on stdin: bash -s <profile> < ci/smoke-test.sh — same pattern in Docker and on host).
+name: Smoke tests
+
+on:
+  pull_request:
+    paths:
+      - cooldowns.sh
+      - ci/smoke-test.sh
+      - .github/workflows/smoke-tests.yml
+  push:
+    branches:
+      - main
+    paths:
+      - cooldowns.sh
+      - ci/smoke-test.sh
+      - .github/workflows/smoke-tests.yml
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    strategy:
+      matrix:
+        include:
+          - name: Linux (Debian container)
+            runs-on: ubuntu-latest
+          - name: macOS (isolated HOME, zsh)
+            runs-on: macos-latest
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          script="$GITHUB_WORKSPACE/ci/smoke-test.sh"
+
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            docker run --rm -i \
+              -v "$GITHUB_WORKSPACE/cooldowns.sh:/usr/local/bin/cooldowns.sh:ro" \
+              debian:stable-slim \
+              bash -s /etc/profile.d/cooldowns.sh < "$script"
+          else
+            export PATH="$GITHUB_WORKSPACE:$PATH"
+            chmod +x "$GITHUB_WORKSPACE/cooldowns.sh"
+            (
+              export HOME=$(mktemp -d)
+              unset ZDOTDIR
+              export SHELL=/bin/zsh
+              unset UV_EXCLUDE_NEWER YARN_NPM_MINIMAL_AGE_GATE COOLDOWN_MINUTES PIP_UPLOADED_PRIOR_TO 2>/dev/null || true
+              trap 'rm -rf "$HOME"' EXIT
+              bash -s "$HOME/.zshrc" < "$script"
+            )
+          fi

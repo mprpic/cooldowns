@@ -39,16 +39,19 @@ set -euo pipefail
 #   SED_INPLACE      array form of `sed -i` for the local platform
 #   date_to_epoch    YYYY-MM-DD -> epoch seconds
 #   _date_days_ago   emits a `date ...` command string for "N days ago in UTC"
+#   copy_mode_from   chmod DEST to SRC's mode (mktemp files are often 0600)
 case "$OSTYPE" in
     darwin*|*bsd*)
         SED_INPLACE=(sed -i '')
         date_to_epoch()   { date -j -f '%Y-%m-%d' "$1" +%s 2>/dev/null; }
         _date_days_ago()  { echo "date -u -v-${1}d '+%Y-%m-%dT%H:%M:%SZ'"; }
+        copy_mode_from() { local src="$1" dest="$2"; chmod "$(stat -f %a "$src")" "$dest"; }
         ;;
     *)
         SED_INPLACE=(sed -i)
         date_to_epoch()   { date -d "$1" +%s 2>/dev/null; }
         _date_days_ago()  { echo "date -u -d '$1 days ago' '+%Y-%m-%dT%H:%M:%SZ'"; }
+        copy_mode_from() { local src="$1" dest="$2"; chmod "$(stat -c %a "$src")" "$dest"; }
         ;;
 esac
 
@@ -341,7 +344,7 @@ set_bun() {
             awk -v line="minimumReleaseAge = $duration" '
                 { print }
                 /^\[install\][[:space:]]*$/ && !done { print line; done=1 }
-            ' "$bunfig" > "$tmp" && mv "$tmp" "$bunfig"
+            ' "$bunfig" > "$tmp" && copy_mode_from "$bunfig" "$tmp" && mv "$tmp" "$bunfig"
         else
             printf '\n[install]\nminimumReleaseAge = %s\n' "$duration" >> "$bunfig"
         fi
@@ -461,8 +464,16 @@ check_pip() {
     local profile_file
     if profile_file=$(find_in_profiles "cooldowns:pip:start"); then
         local days
-        days=$(grep -Eo '[0-9]+ days ago' "$profile_file" | head -1 | awk '{ print $1 }')
-        record pip $STATUS_OK "shell wrapper with ${days}-day cooldown in $profile_file"
+        # GNU date embeds "N days ago" in the emitted command; BSD/macOS uses -v-Nd.
+        days=$(grep -Eo '[0-9]+ days ago' "$profile_file" 2>/dev/null | head -1 | awk '{ print $1 }') || true
+        if [[ -z "$days" ]]; then
+            days=$(grep -Eo -- '-v-[0-9]+d' "$profile_file" 2>/dev/null | head -1 | sed -e 's/-v-//' -e 's/d//') || true
+        fi
+        if [[ -n "$days" ]]; then
+            record pip $STATUS_OK "shell wrapper with ${days}-day cooldown in $profile_file"
+        else
+            record pip $STATUS_OK "shell wrapper with cooldown in $profile_file"
+        fi
         return
     fi
 
