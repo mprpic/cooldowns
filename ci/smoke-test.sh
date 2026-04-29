@@ -8,9 +8,35 @@ set -euo pipefail
 
 profile="${1:?usage: ci/smoke-test.sh <profile-to-source>}"
 
+# `set bun` rewrites ~/.bunfig.toml via mktemp+mv when [install] exists; mode must match
+# the previous file (copy_mode_from). Seed that case only when bunfig is absent.
+file_mode_octal() {
+  local f="$1"
+  case "$(uname -s)" in
+    Darwin) stat -f %OLp "$f" ;; # permission octal only (%a is wrong on macOS)
+    *)      stat -c %a "$f" ;;
+  esac
+}
+
+bunfig="${HOME}/.bunfig.toml"
+verify_bunfig_mode_preserved=false
+if [[ ! -f "$bunfig" ]]; then
+  ( umask 027; printf '[install]\n' >"$bunfig" )
+  bunfig_mode_before=$(file_mode_octal "$bunfig")
+  verify_bunfig_mode_preserved=true
+fi
+
 for t in pip uv npm pnpm yarn bun deno cargo; do
   cooldowns.sh set "$t" 7d
 done
+
+if [[ "$verify_bunfig_mode_preserved" == true ]]; then
+  bunfig_mode_after=$(file_mode_octal "$bunfig")
+  if (( "8#$bunfig_mode_before" != "8#$bunfig_mode_after" )); then
+    echo "smoke: ~/.bunfig.toml mode changed (${bunfig_mode_before} -> ${bunfig_mode_after}) after bun set (expected unchanged; see copy_mode_from in cooldowns.sh)" >&2
+    exit 1
+  fi
+fi
 
 # shellcheck disable=SC1090
 . "$profile"

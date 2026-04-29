@@ -45,13 +45,15 @@ case "$OSTYPE" in
         SED_INPLACE=(sed -i '')
         date_to_epoch()   { date -j -f '%Y-%m-%d' "$1" +%s 2>/dev/null; }
         _date_days_ago()  { echo "date -u -v-${1}d '+%Y-%m-%dT%H:%M:%SZ'"; }
-        copy_mode_from() { local src="$1" dest="$2"; chmod "$(stat -f %a "$src")" "$dest"; }
+        # macOS chmod has no --reference; %OLp is permission bits (not full st_mode).
+        copy_mode_from() { local src="$1" dest="$2"; chmod "$(stat -f %OLp "$src")" "$dest"; }
         ;;
     *)
         SED_INPLACE=(sed -i)
         date_to_epoch()   { date -d "$1" +%s 2>/dev/null; }
         _date_days_ago()  { echo "date -u -d '$1 days ago' '+%Y-%m-%dT%H:%M:%SZ'"; }
-        copy_mode_from() { local src="$1" dest="$2"; chmod "$(stat -c %a "$src")" "$dest"; }
+        # GNU chmod: clone mode from SRC (see `chmod --help`).
+        copy_mode_from() { local src="$1" dest="$2"; chmod --reference="$src" "$dest"; }
         ;;
 esac
 
@@ -340,6 +342,7 @@ set_bun() {
             # Use awk for portability: BSD sed's `a` command has different
             # syntax than GNU sed's.
             local tmp
+            # mktemp files are often 0600; copy_mode_from matches bunfig mode on $tmp before mv.
             tmp=$(mktemp)
             awk -v line="minimumReleaseAge = $duration" '
                 { print }
