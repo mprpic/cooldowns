@@ -1,5 +1,6 @@
 # Smoke-test cooldowns.sh (Linux + macOS). Logic: ci/smoke-test.sh
 # (fed on stdin: bash -s <profile> < ci/smoke-test.sh — same pattern in Docker and on host).
+# https://github.com/mprpic/cooldowns/pull/1
 name: Smoke tests
 
 on:
