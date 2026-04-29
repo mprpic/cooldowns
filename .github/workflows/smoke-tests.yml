@@ -5,17 +5,9 @@ name: Smoke tests
 
 on:
   pull_request:
-    paths:
-      - cooldowns.sh
-      - ci/smoke-test.sh
-      - .github/workflows/smoke-tests.yml
   push:
     branches:
       - main
-    paths:
-      - cooldowns.sh
-      - ci/smoke-test.sh
-      - .github/workflows/smoke-tests.yml
 
 permissions:
   contents: read
