@@ -15,16 +15,17 @@
 # Supported tools: pip, uv, npm, pnpm, yarn, bun, deno, cargo
 #
 # Where configs are written:
-#   pip    Shell wrapper in /etc/profile.d/cooldowns.sh (or ~/.bashrc)
-#   uv     UV_EXCLUDE_NEWER export in /etc/profile.d/cooldowns.sh (or ~/.bashrc)
+#   pip    Shell wrapper in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+#   uv     UV_EXCLUDE_NEWER export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #   npm    min-release-age in ~/.npmrc
 #   pnpm   minimum-release-age in ~/.npmrc
-#   yarn   YARN_NPM_MINIMAL_AGE_GATE export in /etc/profile.d/cooldowns.sh (or ~/.bashrc)
+#   yarn   YARN_NPM_MINIMAL_AGE_GATE export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #   bun    minimumReleaseAge in ~/.bunfig.toml
-#   deno   Aliases in /etc/profile.d/cooldowns.sh (or ~/.bashrc)
-#   cargo  COOLDOWN_MINUTES export in /etc/profile.d/cooldowns.sh (or ~/.bashrc)
+#   deno   Aliases in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+#   cargo  COOLDOWN_MINUTES export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #
-# Profile scripts fall back to ~/.bashrc when /etc/profile.d is not writable.
+# Profile scripts fall back to the user's rc file (~/.zshrc or ~/.bashrc, based
+# on $SHELL) when /etc/profile.d is not writable.
 # All paths are user-wide; project-level configs are not modified.
 #
 # In a Containerfile:
@@ -33,11 +34,74 @@
 
 set -euo pipefail
 
+# All platform-specific knobs live here. Callers (and emitted wrappers) never
+# branch at invocation time.
+#   SED_INPLACE      array form of `sed -i` for the local platform
+#   date_to_epoch    YYYY-MM-DD -> epoch seconds
+#   _date_days_ago   emits a `date ...` command string for "N days ago in UTC"
+#   copy_mode_from   chmod DEST to SRC's mode (mktemp files are often 0600)
+case "$OSTYPE" in
+    darwin*|*bsd*)
+        SED_INPLACE=(sed -i '')
+        date_to_epoch()   { date -j -f '%Y-%m-%d' "$1" +%s 2>/dev/null; }
+        _date_days_ago()  { echo "date -u -v-${1}d '+%Y-%m-%dT%H:%M:%SZ'"; }
+        # macOS chmod has no --reference; %OLp is permission bits (not full st_mode).
+        copy_mode_from() { local src="$1" dest="$2"; chmod "$(stat -f %OLp "$src")" "$dest"; }
+        ;;
+    *)
+        SED_INPLACE=(sed -i)
+        date_to_epoch()   { date -d "$1" +%s 2>/dev/null; }
+        _date_days_ago()  { echo "date -u -d '$1 days ago' '+%Y-%m-%dT%H:%M:%SZ'"; }
+        # GNU chmod: clone mode from SRC (see `chmod --help`).
+        copy_mode_from() { local src="$1" dest="$2"; chmod --reference="$src" "$dest"; }
+        ;;
+esac
+
+# Extract the first `key = value` style value from a file. Tolerates an
+# optional `export ` prefix, whitespace around `=`, and surrounding quotes.
+# Prints the value (no newline stripping beyond trailing WS/comment) and
+# returns 0 if found, 1 otherwise. Portable alternative to `grep -oP ... \K`
+# (which isn't available on macOS's BSD grep).
+extract_kv() {
+    local key="$1" file="$2" val
+    [[ -f "$file" ]] || return 1
+    val=$(awk -v key="$key" '
+        {
+            sub(/\r$/, "")
+            if (match($0, "^[[:space:]]*(export[[:space:]]+)?" key "[[:space:]]*=[[:space:]]*")) {
+                val = substr($0, RSTART + RLENGTH)
+                sub(/[[:space:]]*(#.*)?$/, "", val)
+                if (val ~ /^".*"$/ || val ~ /^'\''.*'\''$/) {
+                    val = substr(val, 2, length(val) - 2)
+                }
+                print val
+                exit
+            }
+        }
+    ' "$file")
+    [[ -n "$val" ]] && { printf '%s\n' "$val"; return 0; }
+    return 1
+}
+
 PROFILE_DIR="/etc/profile.d"
 PROFILE_SCRIPT="$PROFILE_DIR/cooldowns.sh"
 
+# Pick the user's rc file based on $SHELL (used when /etc/profile.d isn't writable).
+user_rc_file() {
+    case "$(basename "${SHELL:-}")" in
+        zsh)  echo "${ZDOTDIR:-$HOME}/.zshrc" ;;
+        bash) echo "$HOME/.bashrc" ;;
+        *)    echo "$HOME/.profile" ;;
+    esac
+}
+
 # All locations where we might have written cooldown config
-PROFILE_CANDIDATES=("$PROFILE_DIR/cooldowns.sh" "$HOME/.bashrc")
+PROFILE_CANDIDATES=(
+    "$PROFILE_DIR/cooldowns.sh"
+    "${ZDOTDIR:-$HOME}/.zshrc"
+    "$HOME/.bashrc"
+    "$HOME/.profile"
+)
 
 # Search all candidate profile files for a marker
 find_in_profiles() {
@@ -95,7 +159,7 @@ duration_for_tool() {
 
 ensure_profile_dir() {
     if [[ ! -d "$PROFILE_DIR" ]] || [[ ! -w "$PROFILE_DIR" ]]; then
-        PROFILE_SCRIPT="$HOME/.bashrc"
+        PROFILE_SCRIPT="$(user_rc_file)"
     fi
 }
 
@@ -105,7 +169,7 @@ clean_previous() {
     local target="$2"
     if [[ -f "$target" ]]; then
         # Remove lines between markers
-        sed -i "/^# cooldowns:${tool}:start$/,/^# cooldowns:${tool}:end$/d" "$target"
+        "${SED_INPLACE[@]}" "/^# cooldowns:${tool}:start$/,/^# cooldowns:${tool}:end$/d" "$target"
     fi
 }
 
@@ -137,16 +201,18 @@ set_pip() {
 
     clean_previous pip "$PROFILE_SCRIPT"
 
+    local date_cmd
+    date_cmd=$(_date_days_ago "$days")
+
     cat >> "$PROFILE_SCRIPT" << SHELL
 # cooldowns:pip:start
 pip() {
-    local pip_major
-    pip_major=\$(command pip --version 2>/dev/null | grep -oP '\d+(?=\.\d+)' | head -1)
+    local pip_major cutoff
+    pip_major=\$(command pip --version 2>/dev/null | awk '{ split(\$2, a, "."); print a[1]; exit }')
     case "\$1" in
         install|download|wheel)
             if [[ "\${pip_major:-0}" -ge 26 ]]; then
-                local cutoff
-                cutoff=\$(date -u -d '${days} days ago' '+%Y-%m-%dT%H:%M:%SZ')
+                cutoff=\$($date_cmd)
                 command pip "\$1" --uploaded-prior-to "\$cutoff" "\${@:2}"
             else
                 echo "warning: pip \${pip_major:-unknown} does not support --uploaded-prior-to (need >= 26), skipping cooldown" >&2
@@ -158,7 +224,6 @@ pip() {
             ;;
     esac
 }
-export -f pip
 # cooldowns:pip:end
 SHELL
     echo "pip: installed shell wrapper with ${days}-day cooldown in $PROFILE_SCRIPT"
@@ -205,7 +270,7 @@ set_npmrc_key() {
 
     if [[ -f "$npmrc" ]] && grep -q "^${key}=" "$npmrc" 2>/dev/null; then
         local val
-        val=$(grep -oP -m1 "^${key}=\\K\\S+" "$npmrc")
+        val=$(extract_kv "$key" "$npmrc" || echo "")
         echo "${tool}: ${key}=${val} is already configured in $npmrc, skipping"
         return
     fi
@@ -266,14 +331,23 @@ set_bun() {
 
     if [[ -f "$bunfig" ]] && grep -q "minimumReleaseAge" "$bunfig" 2>/dev/null; then
         local val
-        val=$(grep -oP -m1 'minimumReleaseAge\s*=\s*\K\S+' "$bunfig")
+        val=$(extract_kv minimumReleaseAge "$bunfig" || echo "")
         echo "bun: minimumReleaseAge is already configured as $val in $bunfig, skipping"
         return
     fi
 
     if [[ -f "$bunfig" ]]; then
         if grep -q '^\[install\]' "$bunfig"; then
-            sed -i "/^\[install\]/a minimumReleaseAge = $duration" "$bunfig"
+            # Insert `minimumReleaseAge = ...` right after the [install] header.
+            # Use awk for portability: BSD sed's `a` command has different
+            # syntax than GNU sed's.
+            local tmp
+            # mktemp files are often 0600; copy_mode_from matches bunfig mode on $tmp before mv.
+            tmp=$(mktemp)
+            awk -v line="minimumReleaseAge = $duration" '
+                { print }
+                /^\[install\][[:space:]]*$/ && !done { print line; done=1 }
+            ' "$bunfig" > "$tmp" && copy_mode_from "$bunfig" "$tmp" && mv "$tmp" "$bunfig"
         else
             printf '\n[install]\nminimumReleaseAge = %s\n' "$duration" >> "$bunfig"
         fi
@@ -375,10 +449,11 @@ check_date_staleness() {
     local tool="$1" label="$2" raw_date="$3"
     local configured_date="${raw_date%%T*}"
     local configured_epoch today_epoch age_days
-    configured_epoch=$(date -d "$configured_date" +%s 2>/dev/null) || {
+    configured_epoch=$(date_to_epoch "$configured_date")
+    if [[ -z "$configured_epoch" ]]; then
         record "$tool" $STATUS_WARN "$label (can't parse date)"
         return
-    }
+    fi
     today_epoch=$(date +%s)
     age_days=$(( (today_epoch - configured_epoch) / 86400 ))
     if [[ $age_days -gt 14 ]]; then
@@ -392,8 +467,16 @@ check_pip() {
     local profile_file
     if profile_file=$(find_in_profiles "cooldowns:pip:start"); then
         local days
-        days=$(grep -oP -m1 '\d+(?= days ago)' "$profile_file")
-        record pip $STATUS_OK "shell wrapper with ${days}-day cooldown in $profile_file"
+        # GNU date embeds "N days ago" in the emitted command; BSD/macOS uses -v-Nd.
+        days=$(grep -Eo '[0-9]+ days ago' "$profile_file" 2>/dev/null | head -1 | awk '{ print $1 }') || true
+        if [[ -z "$days" ]]; then
+            days=$(grep -Eo -- '-v-[0-9]+d' "$profile_file" 2>/dev/null | head -1 | sed -e 's/-v-//' -e 's/d//') || true
+        fi
+        if [[ -n "$days" ]]; then
+            record pip $STATUS_OK "shell wrapper with ${days}-day cooldown in $profile_file"
+        else
+            record pip $STATUS_OK "shell wrapper with cooldown in $profile_file"
+        fi
         return
     fi
 
@@ -418,7 +501,7 @@ check_pip() {
 
     if [[ -n "$pip_conf" ]]; then
         local configured_date
-        configured_date=$(grep -oP -m1 'uploaded-prior-to\s*=\s*\K\S+' "$pip_conf")
+        configured_date=$(extract_kv uploaded-prior-to "$pip_conf" || echo "")
         check_date_staleness pip "uploaded-prior-to=$configured_date in $pip_conf" "$configured_date"
         return
     fi
@@ -427,7 +510,7 @@ check_pip() {
     local profile_file
     if profile_file=$(find_in_profiles "PIP_UPLOADED_PRIOR_TO="); then
         local val
-        val=$(grep -oP -m1 'PIP_UPLOADED_PRIOR_TO="\K[^"]+' "$profile_file")
+        val=$(extract_kv PIP_UPLOADED_PRIOR_TO "$profile_file" || echo "")
         check_date_staleness pip "PIP_UPLOADED_PRIOR_TO='$val' in $profile_file (not yet sourced)" "$val"
         return
     fi
@@ -444,7 +527,7 @@ check_uv() {
     local uv_toml="${HOME}/.config/uv/uv.toml"
     if [[ -f "$uv_toml" ]] && grep -q "exclude-newer" "$uv_toml" 2>/dev/null; then
         local val
-        val=$(grep -oP -m1 'exclude-newer\s*=\s*"\K[^"]+' "$uv_toml")
+        val=$(extract_kv exclude-newer "$uv_toml" || echo "")
         record uv $STATUS_OK "exclude-newer=\"$val\" in $uv_toml"
         return
     fi
@@ -453,7 +536,7 @@ check_uv() {
     if profile_file=$(find_in_profiles "cooldowns:uv:start") \
        || profile_file=$(find_in_profiles "UV_EXCLUDE_NEWER="); then
         local val
-        val=$(grep -oP -m1 'UV_EXCLUDE_NEWER="\K[^"]+' "$profile_file")
+        val=$(extract_kv UV_EXCLUDE_NEWER "$profile_file" || echo "")
         record uv $STATUS_OK "UV_EXCLUDE_NEWER=\"$val\" in $profile_file (not yet sourced)"
         return
     fi
@@ -466,10 +549,10 @@ check_npmrc_key() {
     local npmrc="${HOME}/.npmrc"
     local val
     if [[ -f "$npmrc" ]]; then
-        val=$(grep -oP -m1 "${key}=\\K\\S+" "$npmrc" 2>/dev/null) && {
+        if val=$(extract_kv "$key" "$npmrc"); then
             record "$tool" $STATUS_OK "${key}=$val in $npmrc"
             return 0
-        }
+        fi
     fi
     return 1
 }
@@ -483,14 +566,14 @@ check_npm() {
     local npmrc="${HOME}/.npmrc"
     local val
     if [[ -f "$npmrc" ]]; then
-        val=$(grep -oP -m1 "min-release-age=\\K\\S+" "$npmrc" 2>/dev/null) && {
+        if val=$(extract_kv min-release-age "$npmrc"); then
             if [[ -n "$npm_major" ]] && [[ "$npm_major" -lt 11 ]]; then
                 record npm $STATUS_WARN "min-release-age=$val in $npmrc but npm ${npm_major}.x does not enforce it (need >= 11)"
             else
                 record npm $STATUS_OK "min-release-age=$val in $npmrc"
             fi
             return
-        }
+        fi
     fi
 
     if [[ -n "$npm_major" ]]; then
@@ -519,7 +602,7 @@ check_yarn() {
     if profile_file=$(find_in_profiles "cooldowns:yarn:start") \
        || profile_file=$(find_in_profiles "YARN_NPM_MINIMAL_AGE_GATE="); then
         local val
-        val=$(grep -oP -m1 'YARN_NPM_MINIMAL_AGE_GATE="\K[^"]+' "$profile_file")
+        val=$(extract_kv YARN_NPM_MINIMAL_AGE_GATE "$profile_file" || echo "")
         record yarn $STATUS_OK "YARN_NPM_MINIMAL_AGE_GATE=$val ($(minutes_to_days "$val")d) in $profile_file (not yet sourced)"
         return
     fi
@@ -531,10 +614,10 @@ check_bun() {
     local bunfig="${HOME}/.bunfig.toml"
     if [[ -f "$bunfig" ]]; then
         local val
-        val=$(grep -oP -m1 'minimumReleaseAge\s*=\s*"\K[^"]+' "$bunfig" 2>/dev/null) && {
+        if val=$(extract_kv minimumReleaseAge "$bunfig"); then
             record bun $STATUS_OK "minimumReleaseAge=\"$val\" in $bunfig"
             return
-        }
+        fi
     fi
 
     record bun $STATUS_MISSING "no cooldown configured"
@@ -560,7 +643,7 @@ check_cargo() {
     if profile_file=$(find_in_profiles "cooldowns:cargo:start") \
        || profile_file=$(find_in_profiles "COOLDOWN_MINUTES="); then
         local val
-        val=$(grep -oP -m1 'COOLDOWN_MINUTES="\K[^"]+' "$profile_file")
+        val=$(extract_kv COOLDOWN_MINUTES "$profile_file" || echo "")
         record cargo $STATUS_OK "COOLDOWN_MINUTES=$val ($(minutes_to_days "$val")d) in $profile_file (not yet sourced)"
         return
     fi
@@ -654,14 +737,16 @@ tools: pip, uv, npm, pnpm, yarn, bun, deno, cargo
 duration examples: 3d, "3 days", 7d, 1d
 
 where configs are written (all user-wide; project-level configs are not modified):
-  pip    shell wrapper      /etc/profile.d/cooldowns.sh (or ~/.bashrc)
-  uv     env var export     /etc/profile.d/cooldowns.sh (or ~/.bashrc)
+  pip    shell wrapper      /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+  uv     env var export     /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
   npm    .npmrc key         ~/.npmrc
   pnpm   .npmrc key         ~/.npmrc
-  yarn   env var export     /etc/profile.d/cooldowns.sh (or ~/.bashrc)
+  yarn   env var export     /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
   bun    bunfig.toml key    ~/.bunfig.toml
-  deno   shell aliases      /etc/profile.d/cooldowns.sh (or ~/.bashrc)
-  cargo  env var export     /etc/profile.d/cooldowns.sh (or ~/.bashrc)
+  deno   shell aliases      /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+  cargo  env var export     /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+
+  Fallback chooses ~/.zshrc or ~/.bashrc based on $SHELL.
 
 examples:
   cooldowns.sh set pip 3d
