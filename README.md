@@ -295,7 +295,7 @@ cargo cooldown build
 These language ecosystems currently offer no native cooldown support. There's
 an [open proposal](https://github.com/golang/go/issues/76485) for Go, but it hasn't
 been accepted. [NuGet](https://github.com/NuGet/Home/issues/14657),
-[Composer](https://github.com/composer/composer/issues/12552), and
+[Composer](https://github.com/composer/composer/issues/12633), and
 [Hex](https://github.com/hexpm/hex/issues/1113) also have open feature requests. Your best bet is
 locking your dependencies to exact versions, and configuring cooldowns in Dependabot or Renovate for automated updates
 (see below).
