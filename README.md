@@ -198,7 +198,7 @@ issue [#15759](https://github.com/conda/conda/issues/15759) proposed its impleme
 
 Please note that if the registry you're using does not expose upload times for a release, `uv` and `pip` will fail closed and reject to download, while `poetry` fails open and does not filter out that release. 
 
-Upload times are only supported by the JSON-version of the PyPI Simple API, so tools that only support the HTML format do not support upload times. For example, in Artifactory settings you will have to enable the PyPI Simple JSON API, which is only available as of their April (self-hosted) or May (SaaS) 2026 releases.
+Upload times are only supported by the JSON-version of the PyPI Simple API, so tools that only support the HTML format do not support upload times. For example, in Artifactory settings you will have to enable the PyPI Simple JSON API, which is only available as of their February 2026 (SaaS) or April 2026 (self-hosted) releases.
 
 ## JavaScript Ecosystem
 
