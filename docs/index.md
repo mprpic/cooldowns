@@ -297,6 +297,47 @@ export COOLDOWN_MINUTES=4320  # 3 days, in minutes
 cargo cooldown build
 ```
 
+## Scala / JVM Ecosystem
+
+### Scala Steward
+
+[Scala Steward](https://github.com/scala-steward-org/scala-steward) is a bot that opens dependency update
+PRs for JVM projects. Despite its name, it works with multiple build tools (sbt, Mill, Maven, Gradle, and
+others). It added a cooldown feature in version 0.38.0, with more detailed configuration in 0.38.1.
+Cooldowns are configured per-repository in a `.scala-steward.conf` file at the root of the project:
+
+```hocon
+updates.cooldown = {
+  minimumAge = "3 days"
+}
+```
+
+Scala Steward calculates a version's age from when it first observed the version, and ignores updates
+younger than `minimumAge`.
+
+You can also override the cooldown for specific dependencies via `dependencyOverrides`:
+
+```hocon
+updates.cooldown = {
+  minimumAge = "3 days"
+}
+
+dependencyOverrides = [
+  {
+    dependency = { groupId = "com.my-company" },
+    cooldown = { minimumAge = "0 days" }
+  },
+  {
+    dependency = { groupId = "com.example", artifactId = "foo" },
+    cooldown = { minimumAge = "14 days" }
+  }
+]
+```
+
+The first matching entry wins, so list more specific patterns before broader ones. See the
+[Scala Steward repo-specific configuration docs](https://github.com/scala-steward-org/scala-steward/blob/main/docs/repo-specific-configuration.md)
+for more information.
+
 ## Other ecosystems
 
 These language ecosystems currently offer no native cooldown support. There's
@@ -489,6 +530,7 @@ RUN cooldowns.sh check
 | Bun             | Relative durations  | `minimumReleaseAge = 259200` in `bunfig.toml`              |
 | Deno            | Relative durations  | `minimumDependencyAge: "P3D"` in `deno.json`               |
 | Cargo           | Third-party only    | `cargo cooldown <cmd>` via `cargo-cooldown` crate          |
+| Scala Steward   | Relative durations (0.38.0+) | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
 | Go              | Not available       | Dependabot/Renovate only                                   |
 | Maven/Gradle    | Not available       | Dependabot/Renovate only                                   |
 | NuGet           | Not available       | Dependabot/Renovate only                                   |
