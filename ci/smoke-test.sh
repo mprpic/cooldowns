@@ -26,6 +26,18 @@ if [[ ! -f "$bunfig" ]]; then
   verify_bunfig_mode_preserved=true
 fi
 
+# pnpm checks that its global bin directory is in PATH before accepting config
+# commands. With an isolated HOME the directory doesn't exist yet; create it
+# and add it so pnpm doesn't abort with "global bin directory ... is not in PATH".
+if command -v pnpm &>/dev/null; then
+    case "$(uname -s)" in
+        Darwin) _pnpm_bin="${HOME}/Library/pnpm/bin" ;;
+        *)      _pnpm_bin="${HOME}/.local/share/pnpm/bin" ;;
+    esac
+    mkdir -p "$_pnpm_bin"
+    export PATH="$_pnpm_bin:$PATH"
+fi
+
 configured_tools=()
 for t in pip uv npm pnpm yarn bun deno cargo; do
   set_out=$(cooldowns.sh set "$t" 7d)
@@ -34,6 +46,20 @@ for t in pip uv npm pnpm yarn bun deno cargo; do
     configured_tools+=("$t")
   fi
 done
+
+# pnpm: verify minimum-release-age landed in pnpm's own global config, not ~/.npmrc.
+if command -v pnpm &>/dev/null; then
+    pnpm_val=$(pnpm config get minimum-release-age 2>/dev/null || true)
+    [[ "$pnpm_val" == "10080" ]] || {
+        echo "smoke: pnpm minimum-release-age: expected 10080 (7 days in minutes), got '${pnpm_val}'" >&2
+        exit 1
+    }
+    if grep -q "^minimum-release-age=" "${HOME}/.npmrc" 2>/dev/null; then
+        echo "smoke: minimum-release-age must not appear in ~/.npmrc (would break npm 12)" >&2
+        exit 1
+    fi
+    echo "smoke: pnpm minimum-release-age=$pnpm_val in pnpm global config, absent from ~/.npmrc"
+fi
 
 if [[ "$verify_bunfig_mode_preserved" == true ]]; then
   bunfig_mode_after=$(file_mode_octal "$bunfig")

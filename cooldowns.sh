@@ -13,6 +13,7 @@
 #   cooldowns.sh check
 #
 # Changelog:
+#   2026-05-28  Use pnpm config set --global for pnpm to avoid npm unknown-key warnings
 #   2026-05-07  Added pip 26.1+ duration format support (e.g. P3D)
 #
 # Supported tools: pip, uv, npm, pnpm, yarn, bun, deno, cargo
@@ -24,7 +25,7 @@
 #          - pip < 26.1 uses shell wrapper with absolute timestamps
 #   uv     UV_EXCLUDE_NEWER export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #   npm    min-release-age in ~/.npmrc
-#   pnpm   minimum-release-age in ~/.npmrc
+#   pnpm   minimum-release-age via pnpm config set --global (writes to pnpm's global rc)
 #   yarn   YARN_NPM_MINIMAL_AGE_GATE export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #   bun    minimumReleaseAge in ~/.bunfig.toml
 #   deno   Aliases in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
@@ -352,7 +353,26 @@ set_npm() {
 }
 
 set_pnpm() {
-    set_npmrc_key pnpm minimum-release-age "$1"
+    local days="$1"
+    if ! command -v pnpm &>/dev/null; then
+        echo "pnpm: not installed, skipping"
+        return
+    fi
+    local duration
+    duration=$(duration_for_tool "$days" pnpm)
+
+    local existing
+    existing=$(pnpm config get minimum-release-age 2>/dev/null || true)
+    if [[ -n "$existing" && "$existing" != "undefined" ]]; then
+        echo "pnpm: minimum-release-age is already set to '$existing', skipping"
+        return
+    fi
+
+    pnpm config set minimum-release-age "$duration" --global
+    local globalconfig
+    globalconfig=$(pnpm config get globalconfig 2>/dev/null || true)
+    [[ -z "$globalconfig" || "$globalconfig" == "undefined" ]] && globalconfig="pnpm global config"
+    echo "pnpm: set minimum-release-age=$duration in $globalconfig"
 }
 
 set_yarn() {
@@ -650,19 +670,6 @@ check_uv() {
     record uv $STATUS_MISSING "no cooldown configured"
 }
 
-check_npmrc_key() {
-    local tool="$1" key="$2"
-    local npmrc="${HOME}/.npmrc"
-    local val
-    if [[ -f "$npmrc" ]]; then
-        if val=$(extract_kv "$key" "$npmrc"); then
-            record "$tool" $STATUS_OK "${key}=$val in $npmrc"
-            return 0
-        fi
-    fi
-    return 1
-}
-
 check_npm() {
     local npm_major=""
     if command -v npm &>/dev/null; then
@@ -694,7 +701,12 @@ check_npm() {
 }
 
 check_pnpm() {
-    check_npmrc_key pnpm minimum-release-age && return
+    local val
+    val=$(pnpm config get minimum-release-age 2>/dev/null || true)
+    if [[ -n "$val" && "$val" != "undefined" ]]; then
+        record pnpm $STATUS_OK "minimum-release-age=$val (pnpm global config)"
+        return
+    fi
     record pnpm $STATUS_MISSING "no cooldown configured"
 }
 
@@ -772,7 +784,7 @@ tool_is_relevant() {
         uv)    [[ -f "${HOME}/.config/uv/uv.toml" || -n "${UV_EXCLUDE_NEWER:-}" ]] && return 0
                find_in_profiles "UV_EXCLUDE_NEWER=" &>/dev/null && return 0 ;;
         npm)   [[ -f "${HOME}/.npmrc" ]] && grep -q "min-release-age" "${HOME}/.npmrc" 2>/dev/null && return 0 ;;
-        pnpm)  [[ -f "${HOME}/.npmrc" ]] && grep -q "minimum-release-age" "${HOME}/.npmrc" 2>/dev/null && return 0 ;;
+        pnpm)  command -v pnpm &>/dev/null && pnpm config get minimum-release-age 2>/dev/null | grep -qv "^undefined$" && return 0 ;;
         bun)   [[ -f "${HOME}/.bunfig.toml" ]] && return 0 ;;
         cargo) [[ -n "${COOLDOWN_MINUTES:-}" ]] && return 0
                find_in_profiles "COOLDOWN_MINUTES=" &>/dev/null && return 0 ;;

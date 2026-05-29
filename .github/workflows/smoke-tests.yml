@@ -32,6 +32,10 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Install pnpm (macOS only; Linux installs pnpm inside the Docker container)
+        if: runner.os == 'macOS'
+        run: npm install -g pnpm
+
       - name: Smoke test
         run: |
           set -euo pipefail
@@ -40,8 +44,8 @@ jobs:
           if [[ "${{ runner.os }}" == "Linux" ]]; then
             docker run --rm -i \
               -v "$GITHUB_WORKSPACE/cooldowns.sh:/usr/local/bin/cooldowns.sh:ro" \
-              debian:stable-slim \
-              bash -s /etc/profile.d/cooldowns.sh < "$script"
+              node:lts-slim \
+              bash -c 'npm install -g pnpm --quiet && bash -s /etc/profile.d/cooldowns.sh' < "$script"
           else
             export PATH="$GITHUB_WORKSPACE:$PATH"
             chmod +x "$GITHUB_WORKSPACE/cooldowns.sh"
