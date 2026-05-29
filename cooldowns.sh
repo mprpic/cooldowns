@@ -670,19 +670,6 @@ check_uv() {
     record uv $STATUS_MISSING "no cooldown configured"
 }
 
-check_npmrc_key() {
-    local tool="$1" key="$2"
-    local npmrc="${HOME}/.npmrc"
-    local val
-    if [[ -f "$npmrc" ]]; then
-        if val=$(extract_kv "$key" "$npmrc"); then
-            record "$tool" $STATUS_OK "${key}=$val in $npmrc"
-            return 0
-        fi
-    fi
-    return 1
-}
-
 check_npm() {
     local npm_major=""
     if command -v npm &>/dev/null; then
