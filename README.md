@@ -204,6 +204,30 @@ See [Private PyPI registries](#private-pypi-registries).
 The conda package manager does not have a native cooldown feature, but
 issue [#15759](https://github.com/conda/conda/issues/15759) proposed its implementation.
 
+### pixi
+
+[pixi](https://pixi.prefix.dev/latest/) introduced a built-in cooldown feature in version
+[0.67.0](https://github.com/prefix-dev/pixi/releases/tag/v0.67.0). It uses relative durations natively and accepts
+[three formats](https://pixi.prefix.dev/v0.69.0/reference/pixi_manifest/#exclude-newer-optional) for `exclude-newer`:
+
+- an RFC 3339 timestamp (e.g. `2023-10-01T00:00:00Z`),
+- a `YYYY-MM-DD` date (e.g. `2026-03-30`, interpreted as the start of the following day in UTC,
+  so `2026-03-31T00:00:00Z`), or
+- a relative duration (e.g. `7d`, `1h30m`, `30m`; anything the
+  [`humantime`](https://docs.rs/humantime/) crate accepts, relative to solve time).
+
+For project-level config, set the following in your `pixi.toml` file:
+
+```ini
+[workspace]
+exclude-newer = "3d"
+```
+
+Per-package overrides are available via the `[exclude-newer]` table for conda packages and `[pypi-exclude-newer]`
+for PyPI packages. For more advanced settings, the
+[docs](https://pixi.prefix.dev/latest/security/#2-delay-fresh-uploads-with-exclude-newer) describe how to allow
+trusted internal channels or urgent fixes.
+
 ### Private PyPI registries
 
 If the registry does not expose upload times for a release, `uv` and `pip` will fail closed and reject to install a package
@@ -572,6 +596,7 @@ RUN cooldowns.sh check
 | pip             | Relative durations (26.1+)     | `PIP_UPLOADED_PRIOR_TO="P3D"` / `--uploaded-prior-to P3D`         |
 | uv              | Relative durations             | `exclude-newer = "3 days"` in `uv.toml` / `pyproject.toml`        |
 | poetry          | Relative durations             | `solver.min-release-age=3` in `pyproject.toml`                    |
+| pixi            | Relative durations (0.67.0+)   | `exclude-newer = "3d"` in `pixi.toml`                             |
 | npm             | Relative durations             | `min-release-age=3` in `.npmrc`                                   |
 | pnpm            | Relative durations             | `minimumReleaseAge: 4320` in `pnpm-workspace.yaml`                |
 | Yarn            | Relative durations             | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
