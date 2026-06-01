@@ -177,10 +177,40 @@ Hourly cronjob:
 0 * * * * /usr/local/bin/pip-dependency-cooldown ~/.config/pip/pip.conf 3 2>&1 | logger -t pip-dependency-cooldown
 ```
 
+### poetry
+
+poetry added the [`solver.min-release-age`](https://python-poetry.org/docs/configuration/#solvermin-release-age) setting in 2.4.0. To set it globally, execute:
+
+```
+# Set a global minimum release age of 3 days
+poetry config solver.min-release-age 3
+```
+
+As an environment variable:
+
+```
+export POETRY_SOLVER_MIN_RELEASE_AGE=3
+```
+
+You can also set the following in your project's `pyproject.toml` or in `~/.config/pypoetry/config.toml`:
+
+```
+[solver]
+min-release-age = 3
+```
+
+Please note that if the registry you're using does not expose upload times for a release, `poetry` fails open and does not filter out that release. See [the note on private PyPI registries](#private-pypi-registries).
+
 ### conda
 
 The conda package manager does not have a native cooldown feature, but
 issue [#15759](https://github.com/conda/conda/issues/15759) proposed its implementation.
+
+### Private PyPI registries
+
+Please note that if the registry you're using does not expose upload times for a release, `uv` and `pip` will fail closed and reject to download, while `poetry` fails open and does not filter out that release. 
+
+Upload times are only supported by the JSON-version of the PyPI Simple API, while some tools only support the HTML version. For example, in Artifactory settings you will have to enable the PyPI Simple JSON API, which is only available as of their February 2026 (SaaS) or April 2026 (self-hosted) releases.
 
 ## JavaScript Ecosystem
 
@@ -528,6 +558,7 @@ RUN cooldowns.sh check
 |-----------------|---------------------|------------------------------------------------------------|
 | pip             | Relative durations (26.1+) | `PIP_UPLOADED_PRIOR_TO="P3D"` / `--uploaded-prior-to P3D`  |
 | uv              | Relative durations  | `exclude-newer = "3 days"` in `uv.toml` / `pyproject.toml` |
+| poetry          | Relative durations  | `solver.min-release-age=3` in `pyproject.toml`             |
 | npm             | Relative durations  | `min-release-age=3` in `.npmrc`                            |
 | pnpm            | Relative durations  | `minimumReleaseAge: 4320` in `pnpm-workspace.yaml`         |
 | Yarn            | Relative durations  | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                 |
