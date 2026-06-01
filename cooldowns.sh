@@ -13,10 +13,11 @@
 #   cooldowns.sh check
 #
 # Changelog:
+#   2026-06-01  Added poetry support (solver.min-release-age, poetry >= 2.4.0)
 #   2026-05-28  Use pnpm config set --global for pnpm to avoid npm unknown-key warnings
 #   2026-05-07  Added pip 26.1+ duration format support (e.g. P3D)
 #
-# Supported tools: pip, uv, npm, pnpm, yarn, bun, deno, cargo
+# Supported tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo
 #
 # Where configs are written:
 #   pip    Shell wrapper (pip < 26.1) or env var export (pip >= 26.1)
@@ -24,6 +25,7 @@
 #          - pip 26.1+ uses duration format: PIP_UPLOADED_PRIOR_TO="P3D"
 #          - pip < 26.1 uses shell wrapper with absolute timestamps
 #   uv     UV_EXCLUDE_NEWER export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+#   poetry solver.min-release-age via poetry config (writes to poetry's config.toml)
 #   npm    min-release-age in ~/.npmrc
 #   pnpm   minimum-release-age via pnpm config set --global (writes to pnpm's global rc)
 #   yarn   YARN_NPM_MINIMAL_AGE_GATE export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
@@ -324,6 +326,42 @@ SHELL
     echo "uv: set UV_EXCLUDE_NEWER=\"$duration\" in $PROFILE_SCRIPT"
 }
 
+set_poetry() {
+    local days="$1"
+    if ! command -v poetry &>/dev/null; then
+        echo "poetry: not installed, skipping"
+        return
+    fi
+
+    local poetry_version
+    poetry_version=$(poetry --version 2>/dev/null | awk '{ gsub(/[()]/, ""); print $NF }')
+    if [[ -n "$poetry_version" ]] && ! version_gte "$poetry_version" "2.4.0"; then
+        echo "poetry: solver.min-release-age requires poetry >= 2.4.0 (found $poetry_version), skipping"
+        return
+    fi
+
+    local existing
+    existing=$(poetry config solver.min-release-age 2>/dev/null || true)
+    if [[ -n "$existing" && "$existing" != "Not set" && "$existing" != "0" ]]; then
+        echo "poetry: solver.min-release-age is already set to '$existing', skipping"
+        return
+    fi
+
+    if [[ -n "${POETRY_SOLVER_MIN_RELEASE_AGE:-}" ]]; then
+        echo "poetry: POETRY_SOLVER_MIN_RELEASE_AGE is already set to '$POETRY_SOLVER_MIN_RELEASE_AGE', skipping"
+        return
+    fi
+
+    local existing_file
+    if existing_file=$(find_in_profiles "POETRY_SOLVER_MIN_RELEASE_AGE="); then
+        echo "poetry: POETRY_SOLVER_MIN_RELEASE_AGE is already configured in $existing_file, skipping"
+        return
+    fi
+
+    poetry config solver.min-release-age "$days"
+    echo "poetry: set solver.min-release-age=$days in poetry config"
+}
+
 set_npmrc_key() {
     local tool="$1" key="$2" days="$3"
     local duration
@@ -496,7 +534,7 @@ SHELL
 do_set() {
     if [[ $# -lt 2 ]]; then
         echo "usage: cooldowns.sh set <tool> <duration>" >&2
-        echo "tools: pip, uv, npm, pnpm, yarn, bun, deno, cargo" >&2
+        echo "tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo" >&2
         return 1
     fi
 
@@ -507,6 +545,7 @@ do_set() {
     case "$tool" in
         pip)   set_pip "$days" ;;
         uv)    set_uv "$days" ;;
+        poetry) set_poetry "$days" ;;
         npm)   set_npm "$days" ;;
         pnpm)  set_pnpm "$days" ;;
         yarn)  set_yarn "$days" ;;
@@ -515,7 +554,7 @@ do_set() {
         cargo) set_cargo "$days" ;;
         *)
             echo "error: unknown tool '$tool'" >&2
-            echo "supported: pip, uv, npm, pnpm, yarn, bun, deno, cargo" >&2
+            echo "supported: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo" >&2
             return 1
             ;;
     esac
@@ -670,6 +709,32 @@ check_uv() {
     record uv $STATUS_MISSING "no cooldown configured"
 }
 
+check_poetry() {
+    if [[ -n "${POETRY_SOLVER_MIN_RELEASE_AGE:-}" ]]; then
+        record poetry $STATUS_OK "POETRY_SOLVER_MIN_RELEASE_AGE=${POETRY_SOLVER_MIN_RELEASE_AGE} (${POETRY_SOLVER_MIN_RELEASE_AGE}d)"
+        return
+    fi
+
+    if command -v poetry &>/dev/null; then
+        local val
+        val=$(poetry config solver.min-release-age 2>/dev/null || true)
+        if [[ -n "$val" && "$val" != "Not set" && "$val" != "0" ]]; then
+            record poetry $STATUS_OK "solver.min-release-age=$val (poetry config)"
+            return
+        fi
+    fi
+
+    local profile_file
+    if profile_file=$(find_in_profiles "POETRY_SOLVER_MIN_RELEASE_AGE="); then
+        local val
+        val=$(extract_kv POETRY_SOLVER_MIN_RELEASE_AGE "$profile_file" || echo "")
+        record poetry $STATUS_OK "POETRY_SOLVER_MIN_RELEASE_AGE=$val in $profile_file (not yet sourced)"
+        return
+    fi
+
+    record poetry $STATUS_MISSING "no cooldown configured"
+}
+
 check_npm() {
     local npm_major=""
     if command -v npm &>/dev/null; then
@@ -783,6 +848,8 @@ tool_is_relevant() {
                find_in_profiles "PIP_UPLOADED_PRIOR_TO=" &>/dev/null && return 0 ;;
         uv)    [[ -f "${HOME}/.config/uv/uv.toml" || -n "${UV_EXCLUDE_NEWER:-}" ]] && return 0
                find_in_profiles "UV_EXCLUDE_NEWER=" &>/dev/null && return 0 ;;
+        poetry) [[ -n "${POETRY_SOLVER_MIN_RELEASE_AGE:-}" ]] && return 0
+               find_in_profiles "POETRY_SOLVER_MIN_RELEASE_AGE=" &>/dev/null && return 0 ;;
         npm)   [[ -f "${HOME}/.npmrc" ]] && grep -q "min-release-age" "${HOME}/.npmrc" 2>/dev/null && return 0 ;;
         pnpm)  command -v pnpm &>/dev/null && pnpm config get minimum-release-age 2>/dev/null | grep -qv "^undefined$" && return 0 ;;
         bun)   [[ -f "${HOME}/.bunfig.toml" ]] && return 0 ;;
@@ -800,7 +867,7 @@ do_check() {
 
     local any_checked=false
 
-    for tool in pip uv npm pnpm yarn bun deno cargo; do
+    for tool in pip uv poetry npm pnpm yarn bun deno cargo; do
         if tool_is_relevant "$tool"; then
             any_checked=true
             "check_${tool}"
@@ -855,7 +922,7 @@ commands:
   set <tool> <duration>   Configure cooldown for a package manager
   check                   Check cooldown status for all installed tools
 
-tools: pip, uv, npm, pnpm, yarn, bun, deno, cargo
+tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo
 
 duration examples: 3d, "3 days", 7d, 1d
 
@@ -863,6 +930,7 @@ where configs are written (all user-wide; project-level configs are not modified
   pip    env var (26.1+) or shell wrapper (older)
                             /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
   uv     env var export     /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+  poetry poetry config      ~/.config/pypoetry/config.toml (requires >= 2.4.0)
   npm    .npmrc key         ~/.npmrc
   pnpm   .npmrc key         ~/.npmrc
   yarn   env var export     /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
