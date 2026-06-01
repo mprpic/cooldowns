@@ -17,8 +17,12 @@ script (`cooldowns.sh`) that automates checking and configuring cooldowns.
   (e.g. `awk` instead of `grep -oP`, pure-bash version comparison instead
   of `sort -V`).
 
-- The changelog in `cooldowns.sh` records when the script is adapted to
-  new features in supported package managers. Keep entries to a single line.
+- There are two separate changelogs:
+  - The changelog in `cooldowns.sh` records script functionality changes
+    (new tool support, behavior changes). Keep entries to a single line.
+  - The changelog in `docs/index.md` (and `README.md`) records
+    documentation changes only (new tool docs, changes in configuration).
+    Do not duplicate script-level changes here.
 
 - Run `shellcheck cooldowns.sh` after each change to the script.
 

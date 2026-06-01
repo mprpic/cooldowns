@@ -186,7 +186,7 @@ poetry added the [`solver.min-release-age`](https://python-poetry.org/docs/confi
 poetry config solver.min-release-age 3
 ```
 
-As an environment variable:
+Or use the following environment variable:
 
 ```bash
 export POETRY_SOLVER_MIN_RELEASE_AGE=3
@@ -199,7 +199,7 @@ You can also set the following in your project's `pyproject.toml` or in `~/.conf
 min-release-age = 3
 ```
 
-Please note that if the registry you're using does not expose upload times for a release, `poetry` fails open and does not filter out that release. See [the note on private PyPI registries](#private-pypi-registries).
+If the package registry does not expose upload times for a release, `poetry` fails open and will allow a release to be installed. See [Private PyPI registries](#private-pypi-registries).
 
 ### conda
 
@@ -208,9 +208,10 @@ issue [#15759](https://github.com/conda/conda/issues/15759) proposed its impleme
 
 ### Private PyPI registries
 
-Please note that if the registry you're using does not expose upload times for a release, `uv` and `pip` will fail closed and reject to download, while `poetry` fails open and does not filter out that release. 
+If the registry does not expose upload times for a release, `uv` and `pip` will fail closed and reject to install a package whose version would have been excluded, while `poetry` fails open and will allow that version to be installed.
 
-Upload times are only supported by the JSON-version of the PyPI Simple API, while some tools only support the HTML version. For example, in Artifactory settings you will have to enable the PyPI Simple JSON API, which is only available as of their February 2026 (SaaS) or April 2026 (self-hosted) releases.
+Upload times are only supported by the JSON-version of the PyPI Simple API, so tools that only support the HTML format do not support upload times.
+For example, in JFrog Artifactory settings you have to enable the PyPI Simple JSON API, which is only available as of their February 2026 (SaaS) or April 2026 (self-hosted) releases.
 
 ## JavaScript Ecosystem
 
@@ -585,5 +586,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
-- **2026-05-07**: Added pip 26.1+ duration format support (e.g. `P3D`). The `cooldowns.sh` script now auto-detects
-  pip version and uses duration format for 26.1+ or falls back to shell wrappers for older versions.
+- **2026-05-27**: Added Scala Steward cooldown documentation.
+- **2026-05-26**: Added pixi documentation.
+- **2026-05-21**: Added poetry configuration documentation and a note on private PyPI registries.
+- **2026-05-08**: Documented pip 26.1+ duration format support.
