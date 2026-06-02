@@ -215,7 +215,7 @@ which is only available as of their February 2026 (SaaS) or April 2026 (self-hos
 
 ## JavaScript Ecosystem
 
-### npm
+### npm (JavaScript/Node.js)
 
 npm added the `min-release-age` cooldown option in version 11.10.0. To set it globally, execute:
 
@@ -311,7 +311,9 @@ deno outdated --minimum-dependency-age=P3D
 See [deno documentation](https://docs.deno.com/runtime/reference/cli/install/#options-minimum-dependency-age) for more
 information.
 
-## Cargo (Rust)
+## Rust Ecosystem
+
+### Cargo
 
 Cargo doesn't have native cooldown support yet. Cargo 1.94 added `pubtime` fields to the crate index (the prerequisite),
 and an RFC ([#3923](https://github.com/rust-lang/rfcs/pull/3923)) for native cooldowns is in progress.
@@ -461,10 +463,10 @@ COPY .npmrc /path/to/your/app/dir
 Every `pip install`, `uv sync`/`uv pip install`, or `npm install` inside the container respects the cooldown with no
 extra work.
 
-### Absolute timestamps (pip < 26.1)
+### Absolute timestamps
 
-For older pip versions, compute the absolute cutoff date at build time in the same `RUN` step that installs your
-dependencies:
+For older pip versions (pip < 26.1)), compute the absolute cutoff date at build time in the same `RUN` step
+that installs your dependencies:
 
 ```dockerfile
 FROM quay.io/fedora/fedora
