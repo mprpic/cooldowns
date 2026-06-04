@@ -53,7 +53,7 @@ jobs:
               export HOME=$(mktemp -d)
               unset ZDOTDIR
               export SHELL=/bin/zsh
-              unset UV_EXCLUDE_NEWER YARN_NPM_MINIMAL_AGE_GATE COOLDOWN_MINUTES PIP_UPLOADED_PRIOR_TO 2>/dev/null || true
+              unset UV_EXCLUDE_NEWER YARN_NPM_MINIMAL_AGE_GATE COOLDOWN_MINUTES PIP_UPLOADED_PRIOR_TO BUNDLE_COOLDOWN 2>/dev/null || true
               trap 'rm -rf "$HOME"' EXIT
               bash -s "$HOME/.zshrc" < "$script"
             )

@@ -13,11 +13,12 @@
 #   cooldowns.sh check
 #
 # Changelog:
+#   2026-06-04  Added bundler support (BUNDLE_COOLDOWN export, Bundler >= 4.0.13)
 #   2026-06-01  Added poetry support (solver.min-release-age, poetry >= 2.4.0)
 #   2026-05-28  Use pnpm config set --global for pnpm to avoid npm unknown-key warnings
 #   2026-05-07  Added pip 26.1+ duration format support (e.g. P3D)
 #
-# Supported tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo
+# Supported tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo, bundler
 #
 # Where configs are written:
 #   pip    Shell wrapper (pip < 26.1) or env var export (pip >= 26.1)
@@ -32,6 +33,8 @@
 #   bun    minimumReleaseAge in ~/.bunfig.toml
 #   deno   Aliases in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #   cargo  COOLDOWN_MINUTES export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+#   bundler BUNDLE_COOLDOWN export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+#          (requires Bundler >= 4.0.13)
 #
 # Profile scripts fall back to the user's rc file (~/.zshrc or ~/.bashrc, based
 # on $SHELL) when /etc/profile.d is not writable.
@@ -188,6 +191,7 @@ duration_for_tool() {
         deno)     echo "P${days}D" ;;                    # ISO 8601
         yarn)     echo $(( days * 24 * 60 )) ;;          # minutes
         cargo)    echo $(( days * 24 * 60 )) ;;          # minutes
+        bundler)  echo "$days" ;;                         # integer days
         *)        echo "$days" ;;
     esac
 }
@@ -531,10 +535,41 @@ SHELL
     echo "  Install the crate with: cargo install cargo-cooldown"
 }
 
+set_bundler() {
+    local days="$1"
+    # Bundler reads BUNDLE_COOLDOWN at runtime; the export is harmless without
+    # bundler installed, so (like yarn) we don't gate on `command -v bundle`.
+    local value
+    value=$(duration_for_tool "$days" bundler)
+    ensure_profile_dir
+
+    if ! find_in_profiles "cooldowns:bundler:start" &>/dev/null; then
+        if [[ -n "${BUNDLE_COOLDOWN:-}" ]]; then
+            echo "bundler: BUNDLE_COOLDOWN is already set to '$BUNDLE_COOLDOWN', skipping"
+            return
+        fi
+        local existing_file
+        if existing_file=$(find_in_profiles "BUNDLE_COOLDOWN="); then
+            echo "bundler: BUNDLE_COOLDOWN is already configured in $existing_file, skipping"
+            return
+        fi
+    fi
+
+    clean_previous bundler "$PROFILE_SCRIPT"
+
+    cat >> "$PROFILE_SCRIPT" << SHELL
+# cooldowns:bundler:start
+export BUNDLE_COOLDOWN="$value"
+# cooldowns:bundler:end
+SHELL
+    echo "bundler: set BUNDLE_COOLDOWN=$value in $PROFILE_SCRIPT"
+    echo "  note: requires Bundler >= 4.0.13. Per-project you can instead run 'bundle config set cooldown $value' or add 'cooldown: $value' to a Gemfile source."
+}
+
 do_set() {
     if [[ $# -lt 2 ]]; then
         echo "usage: cooldowns.sh set <tool> <duration>" >&2
-        echo "tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo" >&2
+        echo "tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo, bundler" >&2
         return 1
     fi
 
@@ -552,9 +587,10 @@ do_set() {
         bun)   set_bun "$days" ;;
         deno)  set_deno "$days" ;;
         cargo) set_cargo "$days" ;;
+        bundler) set_bundler "$days" ;;
         *)
             echo "error: unknown tool '$tool'" >&2
-            echo "supported: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo" >&2
+            echo "supported: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo, bundler" >&2
             return 1
             ;;
     esac
@@ -839,6 +875,24 @@ check_cargo() {
     record cargo $STATUS_MISSING "no cooldown configured"
 }
 
+check_bundler() {
+    if [[ -n "${BUNDLE_COOLDOWN:-}" ]]; then
+        record bundler $STATUS_OK "BUNDLE_COOLDOWN=$BUNDLE_COOLDOWN (${BUNDLE_COOLDOWN}d)"
+        return
+    fi
+
+    local profile_file
+    if profile_file=$(find_in_profiles "cooldowns:bundler:start") \
+       || profile_file=$(find_in_profiles "BUNDLE_COOLDOWN="); then
+        local val
+        val=$(extract_kv BUNDLE_COOLDOWN "$profile_file" || echo "")
+        record bundler $STATUS_OK "BUNDLE_COOLDOWN=$val (${val}d) in $profile_file (not yet sourced)"
+        return
+    fi
+
+    record bundler $STATUS_MISSING "no cooldown configured"
+}
+
 tool_is_relevant() {
     local tool="$1"
     command -v "$tool" &>/dev/null && return 0
@@ -857,6 +911,8 @@ tool_is_relevant() {
                find_in_profiles "COOLDOWN_MINUTES=" &>/dev/null && return 0 ;;
         yarn)  [[ -n "${YARN_NPM_MINIMAL_AGE_GATE:-}" ]] && return 0
                find_in_profiles "YARN_NPM_MINIMAL_AGE_GATE=" &>/dev/null && return 0 ;;
+        bundler) [[ -n "${BUNDLE_COOLDOWN:-}" ]] && return 0
+               find_in_profiles "BUNDLE_COOLDOWN=" &>/dev/null && return 0 ;;
     esac
     return 1
 }
@@ -867,7 +923,7 @@ do_check() {
 
     local any_checked=false
 
-    for tool in pip uv poetry npm pnpm yarn bun deno cargo; do
+    for tool in pip uv poetry npm pnpm yarn bun deno cargo bundler; do
         if tool_is_relevant "$tool"; then
             any_checked=true
             "check_${tool}"
@@ -922,7 +978,7 @@ commands:
   set <tool> <duration>   Configure cooldown for a package manager
   check                   Check cooldown status for all installed tools
 
-tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo
+tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo, bundler
 
 duration examples: 3d, "3 days", 7d, 1d
 
@@ -938,6 +994,8 @@ where configs are written (all user-wide; project-level configs are not modified
   deno   shell aliases      /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
   cargo  env var export     /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
                             (requires cargo-cooldown crate; use 'cargo cooldown <cmd>')
+  bundler env var export    /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+                            (requires Bundler >= 4.0.13)
 
   Fallback chooses ~/.zshrc or ~/.bashrc based on $SHELL.
 

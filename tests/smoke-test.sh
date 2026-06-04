@@ -39,7 +39,7 @@ if command -v pnpm &>/dev/null; then
 fi
 
 configured_tools=()
-for t in pip uv poetry npm pnpm yarn bun deno cargo; do
+for t in pip uv poetry npm pnpm yarn bun deno cargo bundler; do
   set_out=$(cooldowns.sh set "$t" 7d)
   echo "$set_out"
   if ! echo "$set_out" | grep -q "skipping" || echo "$set_out" | grep -q "already"; then

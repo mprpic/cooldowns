@@ -581,16 +581,18 @@ cooldowns.sh set npm 7d
 Each `set` command writes a user-wide configuration for that tool. Project-level configs are not modified. The exact
 location depends on the tool:
 
-| Tool  | Method                                           | Location                                        |
-|-------|--------------------------------------------------|-------------------------------------------------|
-| pip   | Env var export (26.1+) or shell wrapper (older)  | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`)  |
-| uv    | Env var export                                   | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`)  |
-| npm   | `.npmrc` key                                     | `~/.npmrc`                                      |
-| pnpm  | `.npmrc` key                                     | `~/.npmrc`                                      |
-| yarn  | Env var export                                   | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`)  |
-| bun   | `bunfig.toml` key                                | `~/.bunfig.toml`                                |
-| deno  | Shell aliases                                    | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`)  |
-| cargo | Env var export (requires `cargo-cooldown` crate) | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`)  |
+| Tool    | Method                                           | Location                                       |
+|---------|--------------------------------------------------|------------------------------------------------|
+| pip     | Env var export (26.1+) or shell wrapper (older)  | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| uv      | Env var export                                   | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| poetry  | `poetry config` setting                          | `~/.config/pypoetry/config.toml`               |
+| npm     | `.npmrc` key                                     | `~/.npmrc`                                     |
+| pnpm    | `.npmrc` key                                     | `~/.npmrc`                                     |
+| yarn    | Env var export                                   | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| bun     | `bunfig.toml` key                                | `~/.bunfig.toml`                               |
+| deno    | Shell aliases                                    | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| cargo   | Env var export (requires `cargo-cooldown` crate) | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| bundler | Env var export (requires Bundler >= 4.0.13)      | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
 
 Tools that use profile scripts write to `/etc/profile.d/cooldowns.sh` if the directory exists and is writable,
 otherwise they fall back to `~/.bashrc`.
