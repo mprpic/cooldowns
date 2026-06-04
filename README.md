@@ -459,15 +459,13 @@ These language ecosystems currently offer no native cooldown support. There's
 an [open proposal](https://github.com/golang/go/issues/76485) for Go, but it hasn't
 been accepted. [NuGet](https://github.com/NuGet/Home/issues/14657),
 [Composer](https://github.com/composer/composer/issues/12633), and
-[Hex](https://github.com/hexpm/hex/issues/1113) also have open feature requests. Your best bet is
+[Hex](https://github.com/hexpm/hex/issues/1113) also have open feature requests. Swift Package Manager doesn't have
+native cooldowns either, and no open request exists requesting this feature as of today. Your best bet is
 locking your dependencies to exact versions, and configuring cooldowns in Dependabot or Renovate for automated updates
 (see below).
 
 Maven/Gradle (Java) don't have native cooldowns either, but the third-party [Scala Steward](#scala-jvm-ecosystem) bot
 described above can apply cooldowns to Maven/Gradle projects (though it's not heavily used outside of Scala).
-Swift Package Manager doesn't have native cooldowns either, and no open request exists requesting this feature as of
-today. RubyGems/Bundler (Ruby) now supports cooldowns natively as of Bundler 4.0.13
-(see [Ruby Ecosystem](#ruby-ecosystem) above).
 
 One related note: the community-run [gem.coop package index](https://gem.coop), an alternative to RubyGems,
 enforces a 48-hour delay on newly published gems at the registry level.
@@ -650,14 +648,13 @@ RUN cooldowns.sh check
 | Bun             | Relative durations             | `minimumReleaseAge = 259200` in `bunfig.toml`                     |
 | Deno            | Relative durations             | `minimumDependencyAge: "P3D"` in `deno.json`                      |
 | Cargo           | Third-party only               | `cargo cooldown <cmd>` via `cargo-cooldown` crate                 |
-| Bundler         | Integer days (4.0.13+)         | `bundle config set cooldown 3` / `--cooldown 3`                   |
+| Bundler         | Relative durations (4.0.13+)   | `bundle config set cooldown 3` / `--cooldown 3`                   |
 | Scala Steward   | Relative durations (0.38.0+)   | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
 | VS Code         | Not available                  | Pin dependencies and review updates manually                      |
 | Go              | Not available                  | Dependabot/Renovate only                                          |
 | Maven/Gradle    | Not available                  | Dependabot/Renovate only                                          |
 | NuGet           | Not available                  | Dependabot/Renovate only                                          |
 | Composer        | Not available                  | Dependabot/Renovate only                                          |
-| RubyGems        | Integer days (Bundler 4.0.13+) | `bundle config set cooldown 3` / `--cooldown 3`                   |
 
 ## Conclusion
 
