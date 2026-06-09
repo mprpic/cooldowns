@@ -6,6 +6,7 @@ site_author = "Martin Prpič"
 repo_url = "https://github.com/mprpic/cooldowns"
 extra_css = ["stylesheets/extra.css"]
 extra_javascript = ["js/no-search.js"]
+watch = ["README.md"]
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
