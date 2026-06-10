@@ -74,15 +74,20 @@ esac
 # ---------------------------------------------------------------------------
 
 # Get pip version (e.g., "26.1.0" -> "26.1.0")
-# Returns empty string if pip is not installed
+# Returns empty string if neither pip nor pip3 is on PATH (e.g. Homebrew only ships pip3)
 get_pip_version() {
-    if ! command -v pip &>/dev/null; then
+    local pip_cmd=""
+    if command -v pip &>/dev/null; then
+        pip_cmd=pip
+    elif command -v pip3 &>/dev/null; then
+        pip_cmd=pip3
+    else
         echo ""
         return 1
     fi
 
     local version
-    version=$(command pip --version 2>/dev/null | awk '{print $2; exit}')
+    version=$(command "$pip_cmd" --version 2>/dev/null | awk '{print $2; exit}')
     echo "$version"
 }
 
@@ -263,26 +268,28 @@ SHELL
         echo "pip: set PIP_UPLOADED_PRIOR_TO=\"P${days}D\" in $PROFILE_SCRIPT"
     else
         # Use shell wrapper for older pip or when pip is not installed
-        local date_cmd
+        local date_cmd pip_for_command
         date_cmd=$(_date_days_ago "$days")
+        pip_for_command=pip
+        command -v pip &>/dev/null || pip_for_command=pip3
 
         cat >> "$PROFILE_SCRIPT" << SHELL
 # cooldowns:pip:start
 pip() {
     local pip_major cutoff
-    pip_major=\$(command pip --version 2>/dev/null | awk '{ split(\$2, a, "."); print a[1]; exit }')
+    pip_major=\$(command ${pip_for_command} --version 2>/dev/null | awk '{ split(\$2, a, "."); print a[1]; exit }')
     case "\$1" in
         install|download|wheel)
             if [[ "\${pip_major:-0}" -ge 26 ]]; then
                 cutoff=\$($date_cmd)
-                command pip "\$1" --uploaded-prior-to "\$cutoff" "\${@:2}"
+                command ${pip_for_command} "\$1" --uploaded-prior-to "\$cutoff" "\${@:2}"
             else
                 echo "warning: pip \${pip_major:-unknown} does not support --uploaded-prior-to (need >= 26), skipping cooldown" >&2
-                command pip "\$@"
+                command ${pip_for_command} "\$@"
             fi
             ;;
         *)
-            command pip "\$@"
+            command ${pip_for_command} "\$@"
             ;;
     esac
 }
