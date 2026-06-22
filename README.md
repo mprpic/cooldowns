@@ -590,11 +590,20 @@ for more information.
 
 ### VS Code
 
-VS Code does not have a native cooldown feature for extensions installed from the Visual Studio Marketplace.
-An open feature request ([#316867](https://github.com/microsoft/vscode/issues/316867)) proposes a
-`minimumReleaseAge` setting that would enforce a delay before new or updated extensions can be installed.
-Until it is implemented, review extension changelogs manually before updating,
-and pin extension versions where possible.
+VS Code can delay automatic extension updates with the `extensions.autoUpdateDelay` setting, introduced in version
+1.123. The value is the delay in hours: VS Code will not auto-update an installed extension until that many hours have
+passed since the new version was published to the Marketplace. The default is `2` hours, and setting it to `0` updates
+extensions as soon as new versions are available. For a three-day cooldown, set it to `72` in your `settings.json`:
+
+```json
+"extensions.autoUpdateDelay": 72
+```
+
+This only takes effect when extension auto-update is enabled, and it only gates updates to already-installed
+extensions, not the first install of a new extension. A broader feature request
+([#316867](https://github.com/microsoft/vscode/issues/316867)) for a `minimumReleaseAge` setting that would also delay
+installing newly published extensions and versions is still open. Until that lands, review changelogs before
+installing a brand-new extension, and pin extension versions where possible.
 
 ## Other ecosystems
 
@@ -884,6 +893,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-06-19**: Updated VS Code documentation for the `extensions.autoUpdateDelay` setting.
 - **2026-06-18**: Added per-package bypass documentation.
 - **2026-06-12**: Added Hex (Elixir) cooldown documentation.
 - **2026-06-03**: Added Bundler (RubyGems) cooldown documentation.
