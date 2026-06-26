@@ -5,3 +5,6 @@
 [data-md-color-scheme="slate"] .md-logo img {
     filter: invert(1);
 }
+code {
+    white-space-collapse: preserve;
+}
