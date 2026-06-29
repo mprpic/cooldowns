@@ -601,6 +601,48 @@ themselves be compromised. See the
 [Scala Steward repo-specific configuration docs](https://github.com/scala-steward-org/scala-steward/blob/main/docs/repo-specific-configuration.md)
 for more information.
 
+## Tools managers
+
+### mise
+
+[mise](https://mise.jdx.dev/) support setting a minimum release age using a relative or absolute date.
+Since v2026.6.2, a default of 24h is applied.
+
+**Note:** Mise contain many backends to install dependencies. Not all of them support minimum-release-age.
+See [security documentation](https://mise.jdx.dev/security.html#minimum-release-age) for details.
+
+To set a custom value, create a [mise.toml](https://mise.jdx.dev/configuration.html) with the following settings:
+
+```toml
+[settings]
+minimum_release_age = "3d"
+```
+
+You can override the value for a particular package using:
+
+```toml
+[tools.trivy]
+version = "latest"
+minimum_release_age = "1d"
+```
+
+It is also possible to completely disable cooldown for a package or and entire backend using
+[minimum_release_age_excludes](https://mise.jdx.dev/configuration/settings.html#minimum_release_age_excludes) or by
+asking a specific version.
+
+```toml
+[settings]
+# Trivy and all the packages using the npm backend will have no cooldown at all
+minimum_release_age_excludes = ["trivy", "npm:*"]
+
+[tools]
+node = "22.5.0" # This version will be installed regardless of the minimum_release_age setting
+```
+
+You can list packages using a particular backend by default using `mise registry | grep '  npm:'`.  
+Packages can also have fallback backends. This is relevant if you disable a backend. To list all packages using a
+backend as fallback, use `mise registry | grep -v '  npm:' | grep ' npm:'`.
+
 ## IDE Extensions
 
 ### VS Code
@@ -828,6 +870,7 @@ RUN cooldowns.sh check
 | Bundler         | Relative durations (4.0.13+)               | `bundle config set cooldown 3` / `--cooldown 3`                   |
 | Hex             | Relative durations (unreleased)            | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
 | Scala Steward   | Relative durations (0.38.0+)               | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
+| Mise            | Relative durations                         | `settings.minimum_release_age = "3d"` in `mise.toml`              |
 | VS Code         | Not available                              | Pin dependencies and review updates manually                      |
 | Go              | Not available                              | Dependabot/Renovate only                                          |
 | Maven/Gradle    | Not available                              | Dependabot/Renovate only                                          |
@@ -840,21 +883,22 @@ When a vulnerability is disclosed and a fix is already available, you may need t
 without waiting for the cooldown to expire. Most package managers provide a way to exempt individual packages or
 disable the cooldown for a single run. The table below summarizes the bypass mechanism for each tool:
 
-| Package Manager | Per-package bypass | How to bypass                                                           |
-| --------------- | ------------------ | ----------------------------------------------------------------------- |
-| pip             | No                 | Unset env var or override on CLI; see [pip section](#pip)               |
-| uv              | Yes                | `exclude-newer-package = { pkg = false }` in config file                |
-| poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                     |
-| pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`         |
-| npm             | No                 | Pass `--min-release-age=0` on the command line                          |
-| pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)       |
-| Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                          |
-| Bun             | Yes                | `minimumReleaseAgeExcludes` list in `bunfig.toml`                       |
-| Deno            | Yes                | Object form with `exclude` array in `deno.json`                         |
-| Cargo           | Yes                | `[[allow.package]]` / `[[allow.exact]]` in `cooldown.toml`              |
-| Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`         |
-| Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                    |
-| Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`         |
+| Package Manager | Per-package bypass | How to bypass                                                                                       |
+| --------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| pip             | No                 | Unset env var or override on CLI; see [pip section](#pip)                                           |
+| uv              | Yes                | `exclude-newer-package = { pkg = false }` in config file                                            |
+| poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                                                 |
+| pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`                                     |
+| npm             | No                 | Pass `--min-release-age=0` on the command line                                                      |
+| pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)                                   |
+| Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                                                      |
+| Bun             | Yes                | `minimumReleaseAgeExcludes` list in `bunfig.toml`                                                   |
+| Deno            | Yes                | Object form with `exclude` array in `deno.json`                                                     |
+| Cargo           | Yes                | `[[allow.package]]` / `[[allow.exact]]` in `cooldown.toml`                                          |
+| Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                                     |
+| Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
+| Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`                                     |
+| mise            | Yes                | Automatic for specific tool version. Per tool `minimum_release_age`. `minimum_release_age_excludes` |
 
 **Important:** always revert bypass exemptions after installing the fix. A forgotten entry in a config file
 permanently weakens your cooldown protection for that package. For tools with per-package support, add the
@@ -908,6 +952,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-06-26**: Added Mise documentation.
 - **2026-06-19**: Updated VS Code documentation for the `extensions.autoUpdateDelay` setting.
 - **2026-06-18**: Added per-package bypass documentation.
 - **2026-06-12**: Added Hex (Elixir) cooldown documentation.
