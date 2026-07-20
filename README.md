@@ -620,6 +620,31 @@ extensions, not the first install of a new extension. A broader feature request
 installing newly published extensions and versions is still open. Until that lands, review changelogs before
 installing a brand-new extension, and pin extension versions where possible.
 
+## GitHub Actions
+
+GitHub Actions has no native cooldown feature, though actions referenced in workflows are dependencies like any other:
+in the March 2025
+[tj-actions/changed-files compromise](https://www.stepsecurity.io/blog/harden-runner-detection-tj-actions-changed-files-action-is-compromised),
+attackers re-pointed existing version tags at a malicious commit that leaked CI secrets from over 20,000 repositories.
+Pin actions to full commit SHAs so that a moved tag cannot change what your workflow runs, and apply a cooldown when
+updating those pins.
+
+### actions-up
+
+[actions-up](https://github.com/azat-io/actions-up) is an interactive CLI that scans workflows and composite actions
+and updates the actions they reference, pinning them to full commit SHAs by default. It added cooldown support via the
+`--min-age` flag in version 1.6.0, and since version 1.16.0 a one-day cooldown is enabled by default. The value is a
+number of days:
+
+```bash
+npx actions-up --min-age 3
+```
+
+There is no per-action exemption; to bypass the cooldown for an urgent fix, run with `--min-age 0` and select only the
+action you need. Dependabot and Renovate can also update GitHub Actions with the cooldown settings shown in
+[Dependency update bots](#dependency-update-bots). See the
+[actions-up documentation](https://github.com/azat-io/actions-up#readme) for more information.
+
 ## Other ecosystems
 
 These language ecosystems currently offer no native cooldown support. There's
@@ -828,6 +853,7 @@ RUN cooldowns.sh check
 | Bundler         | Relative durations (4.0.13+)               | `bundle config set cooldown 3` / `--cooldown 3`                   |
 | Hex             | Relative durations (unreleased)            | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
 | Scala Steward   | Relative durations (0.38.0+)               | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
+| GitHub Actions  | Third-party only (1-day default)           | `npx actions-up --min-age 3` via `actions-up`                     |
 | VS Code         | Not available                              | Pin dependencies and review updates manually                      |
 | Go              | Not available                              | Dependabot/Renovate only                                          |
 | Maven/Gradle    | Not available                              | Dependabot/Renovate only                                          |
@@ -855,6 +881,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`         |
 | Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                    |
 | Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`         |
+| actions-up      | Per-run only       | `--min-age 0` disables for run; select only the needed action           |
 
 **Important:** always revert bypass exemptions after installing the fix. A forgotten entry in a config file
 permanently weakens your cooldown protection for that package. For tools with per-package support, add the
@@ -908,6 +935,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-07-21**: Added GitHub Actions cooldown documentation (`actions-up`).
 - **2026-06-19**: Updated VS Code documentation for the `extensions.autoUpdateDelay` setting.
 - **2026-06-18**: Added per-package bypass documentation.
 - **2026-06-12**: Added Hex (Elixir) cooldown documentation.
