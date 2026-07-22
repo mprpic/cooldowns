@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # cooldowns.sh -- set and check dependency cooldown configurations
 #
