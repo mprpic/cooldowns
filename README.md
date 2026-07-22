@@ -301,10 +301,22 @@ min-release-age = 3 # days
 
 `npm` chose to use a unit that represents the number of days that a release must be
 available before it will be considered for installation. In true JavaScript fashion, the other JS package managers chose
-completely different units of time. Unlike pnpm and Yarn (see below), npm doesn't yet have a way to
-exempt specific packages from the cooldown. To bypass the cooldown for an urgent fix, you can temporarily override it
-for the entire install by passing `--min-release-age=0` on the command line.
-See [npm documentation](https://docs.npmjs.com/cli/v11/using-npm/config#min-release-age) for more information.
+completely different units of time.
+
+npm 12 added `min-release-age-exclude` for per-package exemptions. The value accepts package names or
+[minimatch](https://www.npmjs.com/package/minimatch) glob patterns. In your `.npmrc`:
+
+```ini
+min-release-age = 3
+min-release-age-exclude[] = @myorg/*
+min-release-age-exclude[] = my-internal-pkg
+```
+
+Only the named package is exempt; its transitive dependencies still follow the release-age policy unless they also
+match a pattern. On npm 11 (which lacks `min-release-age-exclude`), you can temporarily override the cooldown for the
+entire install by passing `--min-release-age=0` on the command line.
+
+See [npm documentation](https://docs.npmjs.com/cli/v12/using-npm/config#min-release-age) for more information.
 
 ### pnpm (JavaScript/Node.js)
 
@@ -844,7 +856,7 @@ RUN cooldowns.sh check
 | uv              | Relative durations                         | `exclude-newer = "3 days"` in `uv.toml` / `pyproject.toml`        |
 | poetry          | Relative durations                         | `solver.min-release-age=3` in `pyproject.toml`                    |
 | pixi            | Relative durations (0.67.0+)               | `exclude-newer = "3d"` in `pixi.toml`                             |
-| npm             | Relative durations                         | `min-release-age=3` in `.npmrc`                                   |
+| npm             | Relative durations; exclusions (12+)       | `min-release-age=3` in `.npmrc`                                   |
 | pnpm            | Relative durations (1-day default in v11+) | `minimumReleaseAge: 4320` in `pnpm-workspace.yaml`                |
 | Yarn            | Relative durations                         | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
 | Bun             | Relative durations                         | `minimumReleaseAge = 259200` in `bunfig.toml`                     |
@@ -872,7 +884,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | uv              | Yes                | `exclude-newer-package = { pkg = false }` in config file                |
 | poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                     |
 | pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`         |
-| npm             | No                 | Pass `--min-release-age=0` on the command line                          |
+| npm             | Yes (npm 12+)      | `min-release-age-exclude[]` in `.npmrc` (globs supported)               |
 | pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)       |
 | Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                          |
 | Bun             | Yes                | `minimumReleaseAgeExcludes` list in `bunfig.toml`                       |
@@ -885,7 +897,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 
 **Important:** always revert bypass exemptions after installing the fix. A forgotten entry in a config file
 permanently weakens your cooldown protection for that package. For tools with per-package support, add the
-exemption, install the fix, then remove it. For tools without per-package support (pip, npm), temporarily override
+exemption, install the fix, then remove it. For tools without per-package support (pip, npm 11), temporarily override
 the cooldown for the entire install command and pin the version you need.
 Both [Renovate](https://docs.renovatebot.com/) and [Dependabot](https://docs.github.com/en/code-security/dependabot)
 exempt security updates from cooldowns by default, so CVE fix PRs still arrive immediately regardless of your cooldown
@@ -935,6 +947,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-07-22**: Added npm 12 `min-release-age-exclude` per-package bypass documentation.
 - **2026-07-21**: Added GitHub Actions cooldown documentation (`actions-up`).
 - **2026-06-19**: Updated VS Code documentation for the `extensions.autoUpdateDelay` setting.
 - **2026-06-18**: Added per-package bypass documentation.
