@@ -631,6 +631,48 @@ themselves be compromised. See the
 [Scala Steward repo-specific configuration docs](https://github.com/scala-steward-org/scala-steward/blob/main/docs/repo-specific-configuration.md)
 for more information.
 
+## Tool Managers
+
+### mise
+
+[mise](https://mise.jdx.dev/) supports setting a minimum release age using a relative or absolute date.
+Since v2026.6.2, a default of 24h is applied.
+
+**Note:** mise contains many backends to install dependencies. Not all of them support minimum-release-age.
+See [security documentation](https://mise.jdx.dev/security.html#minimum-release-age) for details.
+
+To set a custom value, create a [mise.toml](https://mise.jdx.dev/configuration.html) with the following settings:
+
+```toml
+[settings]
+minimum_release_age = "3d"
+```
+
+You can override the value for a particular package using:
+
+```toml
+[tools.trivy]
+version = "latest"
+minimum_release_age = "1d"
+```
+
+It is also possible to completely disable cooldown for a package or an entire backend using
+[minimum_release_age_excludes](https://mise.jdx.dev/configuration/settings.html#minimum_release_age_excludes) or by
+pinning a specific version.
+
+```toml
+[settings]
+# Trivy and all the packages using the npm backend will have no cooldown at all
+minimum_release_age_excludes = ["trivy", "npm:*"]
+
+[tools]
+node = "22.5.0" # This version will be installed regardless of the minimum_release_age setting
+```
+
+You can list packages using a particular backend by default using `mise registry | grep '  npm:'`.
+Packages can also have fallback backends. This is relevant if you disable a backend. To list all packages using a
+backend as fallback, use `mise registry | grep -v '  npm:' | grep ' npm:'`.
+
 ## IDE Extensions
 
 ### VS Code
@@ -828,8 +870,8 @@ Tools that use profile scripts write to `/etc/profile.d/cooldowns.sh` if the dir
 otherwise they fall back to `~/.bashrc`.
 
 Tools that only support project-level configuration are not covered by this script. This includes pipenv
-(`cool-down-period` in the Pipfile), pixi (`exclude-newer` in `pixi.toml`), and Scala Steward
-(`updates.cooldown.minimumAge` in `.scala-steward.conf`). For pipenv specifically, the `PIP_UPLOADED_PRIOR_TO`
+(`cool-down-period` in the Pipfile), pixi (`exclude-newer` in `pixi.toml`), mise (`minimum_release_age` in
+`mise.toml`), and Scala Steward (`updates.cooldown.minimumAge` in `.scala-steward.conf`). For pipenv specifically, the `PIP_UPLOADED_PRIOR_TO`
 environment variable set by `cooldowns.sh set pip` is inherited by pipenv since it uses pip under the hood.
 
 ### Checking cooldowns
@@ -890,6 +932,7 @@ RUN cooldowns.sh check
 | Hex             | Relative durations (unreleased)            | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
 | Scala Steward   | Relative durations (0.38.0+)               | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
 | GitHub Actions  | Third-party only (1-day default)           | `npx actions-up --min-age 3` via `actions-up`                     |
+| Mise            | Relative durations                         | `settings.minimum_release_age = "3d"` in `mise.toml`              |
 | VS Code         | Not available                              | Pin dependencies and review updates manually                      |
 | Go              | Not available                              | Dependabot/Renovate only                                          |
 | Maven/Gradle    | Not available                              | Dependabot/Renovate only                                          |
@@ -902,23 +945,24 @@ When a vulnerability is disclosed and a fix is already available, you may need t
 without waiting for the cooldown to expire. Most package managers provide a way to exempt individual packages or
 disable the cooldown for a single run. The table below summarizes the bypass mechanism for each tool:
 
-| Package Manager | Per-package bypass | How to bypass                                                           |
-| --------------- | ------------------ | ----------------------------------------------------------------------- |
-| pip             | No                 | Unset env var or override on CLI; see [pip section](#pip)               |
-| uv              | Yes                | `exclude-newer-package = { pkg = false }` in config file                |
-| pipenv          | No                 | Remove `cool-down-period` from `Pipfile` or install directly with pip   |
-| poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                     |
-| pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`         |
-| npm             | Yes (npm 12+)      | `min-release-age-exclude[]` in `.npmrc` (globs supported)               |
-| pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)       |
-| Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                          |
-| Bun             | Yes                | `minimumReleaseAgeExcludes` list in `bunfig.toml`                       |
-| Deno            | Yes                | Object form with `exclude` array in `deno.json`                         |
-| Cargo           | Yes                | `[[allow.package]]` / `[[allow.exact]]` in `cooldown.toml`              |
-| Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`         |
-| Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                    |
-| Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`         |
-| actions-up      | Per-run only       | `--min-age 0` disables for run; select only the needed action           |
+| Package Manager | Per-package bypass | How to bypass                                                                                       |
+| --------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| pip             | No                 | Unset env var or override on CLI; see [pip section](#pip)                                           |
+| uv              | Yes                | `exclude-newer-package = { pkg = false }` in config file                                            |
+| pipenv          | No                 | Remove `cool-down-period` from `Pipfile` or install directly with pip                               |
+| poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                                                 |
+| pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`                                     |
+| npm             | Yes (npm 12+)      | `min-release-age-exclude[]` in `.npmrc` (globs supported)                                           |
+| pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)                                   |
+| Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                                                      |
+| Bun             | Yes                | `minimumReleaseAgeExcludes` list in `bunfig.toml`                                                   |
+| Deno            | Yes                | Object form with `exclude` array in `deno.json`                                                     |
+| Cargo           | Yes                | `[[allow.package]]` / `[[allow.exact]]` in `cooldown.toml`                                          |
+| Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                                     |
+| Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
+| Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`                                     |
+| actions-up      | Per-run only       | `--min-age 0` disables for run; select only the needed action                                       |
+| mise            | Yes                | Per-tool `minimum_release_age` or `minimum_release_age_excludes`; pinned versions auto-bypass       |
 
 **Important:** always revert bypass exemptions after installing the fix. A forgotten entry in a config file
 permanently weakens your cooldown protection for that package. For tools with per-package support, add the
@@ -975,6 +1019,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 - **2026-07-22**: Added npm 12 `min-release-age-exclude` per-package bypass documentation.
 - **2026-07-22**: Added pipenv cooldown documentation.
 - **2026-07-21**: Added GitHub Actions cooldown documentation (`actions-up`).
+- **2026-06-26**: Added Mise documentation.
 - **2026-06-19**: Updated VS Code documentation for the `extensions.autoUpdateDelay` setting.
 - **2026-06-18**: Added per-package bypass documentation.
 - **2026-06-12**: Added Hex (Elixir) cooldown documentation.
