@@ -190,6 +190,24 @@ Hourly cronjob:
 0 * * * * /usr/local/bin/pip-dependency-cooldown ~/.config/pip/pip.conf 3 2>&1 | logger -t pip-dependency-cooldown
 ```
 
+### pipenv
+
+[pipenv](https://pipenv.pypa.io/) added the `cool-down-period` setting in version 2026.6.2. It is configured in the
+`[pipenv]` section of the project's `Pipfile` and accepts a duration string in the form `<N>d` (days). For example, to
+apply a three-day cooldown:
+
+```toml
+[pipenv]
+cool-down-period = "3d"
+```
+
+Under the hood, pipenv passes this value to pip's `--uploaded-prior-to` flag during resolution. The filtering only works
+against indexes that expose upload-time metadata via the Simple Repository API; when the index does not provide it, the
+setting is accepted but has no filtering effect (see [Private PyPI registries](#private-pypi-registries)).
+
+There is no environment variable equivalent and no per-package bypass. To install a specific package without the
+cooldown, temporarily remove the setting from the Pipfile or install the package directly with pip.
+
 ### poetry
 
 poetry added the
@@ -809,6 +827,11 @@ location depends on the tool:
 Tools that use profile scripts write to `/etc/profile.d/cooldowns.sh` if the directory exists and is writable,
 otherwise they fall back to `~/.bashrc`.
 
+Tools that only support project-level configuration are not covered by this script. This includes pipenv
+(`cool-down-period` in the Pipfile), pixi (`exclude-newer` in `pixi.toml`), and Scala Steward
+(`updates.cooldown.minimumAge` in `.scala-steward.conf`). For pipenv specifically, the `PIP_UPLOADED_PRIOR_TO`
+environment variable set by `cooldowns.sh set pip` is inherited by pipenv since it uses pip under the hood.
+
 ### Checking cooldowns
 
 ```bash
@@ -854,6 +877,7 @@ RUN cooldowns.sh check
 | --------------- | ------------------------------------------ | ----------------------------------------------------------------- |
 | pip             | Relative durations (26.1+)                 | `PIP_UPLOADED_PRIOR_TO="P3D"` / `--uploaded-prior-to P3D`         |
 | uv              | Relative durations                         | `exclude-newer = "3 days"` in `uv.toml` / `pyproject.toml`        |
+| pipenv          | Relative durations (2026.6.2+)             | `cool-down-period = "3d"` in `Pipfile`                            |
 | poetry          | Relative durations                         | `solver.min-release-age=3` in `pyproject.toml`                    |
 | pixi            | Relative durations (0.67.0+)               | `exclude-newer = "3d"` in `pixi.toml`                             |
 | npm             | Relative durations; exclusions (12+)       | `min-release-age=3` in `.npmrc`                                   |
@@ -882,6 +906,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | --------------- | ------------------ | ----------------------------------------------------------------------- |
 | pip             | No                 | Unset env var or override on CLI; see [pip section](#pip)               |
 | uv              | Yes                | `exclude-newer-package = { pkg = false }` in config file                |
+| pipenv          | No                 | Remove `cool-down-period` from `Pipfile` or install directly with pip   |
 | poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                     |
 | pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`         |
 | npm             | Yes (npm 12+)      | `min-release-age-exclude[]` in `.npmrc` (globs supported)               |
@@ -948,6 +973,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 ## Changelog
 
 - **2026-07-22**: Added npm 12 `min-release-age-exclude` per-package bypass documentation.
+- **2026-07-22**: Added pipenv cooldown documentation.
 - **2026-07-21**: Added GitHub Actions cooldown documentation (`actions-up`).
 - **2026-06-19**: Updated VS Code documentation for the `extensions.autoUpdateDelay` setting.
 - **2026-06-18**: Added per-package bypass documentation.
