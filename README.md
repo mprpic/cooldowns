@@ -631,14 +631,14 @@ themselves be compromised. See the
 [Scala Steward repo-specific configuration docs](https://github.com/scala-steward-org/scala-steward/blob/main/docs/repo-specific-configuration.md)
 for more information.
 
-## Tools managers
+## Tool Managers
 
 ### mise
 
-[mise](https://mise.jdx.dev/) support setting a minimum release age using a relative or absolute date.
+[mise](https://mise.jdx.dev/) supports setting a minimum release age using a relative or absolute date.
 Since v2026.6.2, a default of 24h is applied.
 
-**Note:** Mise contain many backends to install dependencies. Not all of them support minimum-release-age.
+**Note:** mise contains many backends to install dependencies. Not all of them support minimum-release-age.
 See [security documentation](https://mise.jdx.dev/security.html#minimum-release-age) for details.
 
 To set a custom value, create a [mise.toml](https://mise.jdx.dev/configuration.html) with the following settings:
@@ -656,9 +656,9 @@ version = "latest"
 minimum_release_age = "1d"
 ```
 
-It is also possible to completely disable cooldown for a package or and entire backend using
+It is also possible to completely disable cooldown for a package or an entire backend using
 [minimum_release_age_excludes](https://mise.jdx.dev/configuration/settings.html#minimum_release_age_excludes) or by
-asking a specific version.
+pinning a specific version.
 
 ```toml
 [settings]
@@ -669,7 +669,7 @@ minimum_release_age_excludes = ["trivy", "npm:*"]
 node = "22.5.0" # This version will be installed regardless of the minimum_release_age setting
 ```
 
-You can list packages using a particular backend by default using `mise registry | grep '  npm:'`.  
+You can list packages using a particular backend by default using `mise registry | grep '  npm:'`.
 Packages can also have fallback backends. This is relevant if you disable a backend. To list all packages using a
 backend as fallback, use `mise registry | grep -v '  npm:' | grep ' npm:'`.
 
@@ -870,8 +870,8 @@ Tools that use profile scripts write to `/etc/profile.d/cooldowns.sh` if the dir
 otherwise they fall back to `~/.bashrc`.
 
 Tools that only support project-level configuration are not covered by this script. This includes pipenv
-(`cool-down-period` in the Pipfile), pixi (`exclude-newer` in `pixi.toml`), and Scala Steward
-(`updates.cooldown.minimumAge` in `.scala-steward.conf`). For pipenv specifically, the `PIP_UPLOADED_PRIOR_TO`
+(`cool-down-period` in the Pipfile), pixi (`exclude-newer` in `pixi.toml`), mise (`minimum_release_age` in
+`mise.toml`), and Scala Steward (`updates.cooldown.minimumAge` in `.scala-steward.conf`). For pipenv specifically, the `PIP_UPLOADED_PRIOR_TO`
 environment variable set by `cooldowns.sh set pip` is inherited by pipenv since it uses pip under the hood.
 
 ### Checking cooldowns
@@ -962,7 +962,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
 | Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`                                     |
 | actions-up      | Per-run only       | `--min-age 0` disables for run; select only the needed action                                       |
-| mise            | Yes                | Automatic for specific tool version. Per tool `minimum_release_age`. `minimum_release_age_excludes` |
+| mise            | Yes                | Per-tool `minimum_release_age` or `minimum_release_age_excludes`; pinned versions auto-bypass       |
 
 **Important:** always revert bypass exemptions after installing the fix. A forgotten entry in a config file
 permanently weakens your cooldown protection for that package. For tools with per-package support, add the
