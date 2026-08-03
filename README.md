@@ -746,8 +746,9 @@ action you need. Dependabot and Renovate can also update GitHub Actions with the
 
 These language ecosystems currently offer no native cooldown support. There's
 an [open proposal](https://github.com/golang/go/issues/76485) for Go, but it hasn't
-been accepted. [NuGet](https://github.com/NuGet/Home/issues/14657) and
-[Composer](https://github.com/composer/composer/issues/12633) also have open feature requests.
+been accepted. [NuGet](https://github.com/NuGet/Home/issues/14657),
+[Composer](https://github.com/composer/composer/issues/12633), and
+[Dart's pub](https://github.com/dart-lang/pub/issues/4791) also have open feature requests.
 Swift Package Manager doesn't have
 native cooldowns either, and no open request exists requesting this feature as of today. Your best bet is
 locking your dependencies to exact versions, and configuring cooldowns in Dependabot or Renovate for automated updates
@@ -1048,6 +1049,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-08-03**: Noted Dart/pub's open cooldown proposal.
 - **2026-08-03**: Added Verdaccio to the registry-level proxy cooldown options.
 - **2026-08-03**: Added PDM cooldown documentation.
 - **2026-08-03**: Noted Yarn's default one-day cooldown (enabled since 4.15.0).
