@@ -758,7 +758,8 @@ To configure a cooldown of three days in your `renovate.json` file, use:
 }
 ```
 
-Dependabot also has a cooldown feature that can be specified in `dependabot.yml`:
+Dependabot also has a cooldown feature. Since July 2026 it applies a default three-day cooldown to version
+updates even without any configuration (security updates remain exempt). You can customize it in `dependabot.yml`:
 
 ```yaml
 version: 2
@@ -1017,6 +1018,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-08-03**: Dependabot defaults to a three-day cooldown for version updates.
 - **2026-08-03**: Hex (Elixir) cooldown feature shipped in v2.5.0.
 - **2026-07-22**: Added npm 12 `min-release-age-exclude` per-package bypass documentation.
 - **2026-07-22**: Added pipenv cooldown documentation.
