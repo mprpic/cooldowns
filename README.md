@@ -593,8 +593,8 @@ to a version that is retired or has a security advisory are allowed to re-resolv
 ### Scala Steward
 
 [Scala Steward](https://github.com/scala-steward-org/scala-steward) is a bot that opens dependency update
-PRs for JVM projects. Despite its name, it works with multiple build tools (sbt, Mill, Maven, Gradle, and
-others). It added a cooldown feature in version 0.38.0, with more detailed configuration in 0.38.1.
+PRs for JVM projects. Despite its name, it works with multiple build tools (Maven, Mill, sbt, and Scala CLI).
+It added a cooldown feature in version 0.38.0, with more detailed configuration in 0.38.1.
 Cooldowns are configured per-repository in a `.scala-steward.conf` file at the root of the project:
 
 ```properties
@@ -732,7 +732,8 @@ locking your dependencies to exact versions, and configuring cooldowns in Depend
 (see below).
 
 Maven/Gradle (Java) don't have native cooldowns either, but the third-party [Scala Steward](#scala-jvm-ecosystem) bot
-described above can apply cooldowns to Maven/Gradle projects (though it's not heavily used outside of Scala).
+described above can apply cooldowns to Maven projects (though it's not heavily used outside of Scala; note that
+Scala Steward does not officially support Gradle).
 
 One related note: the community-run [gem.coop package index](https://gem.coop), an alternative to RubyGems,
 enforces a 48-hour delay on newly published gems at the registry level.
