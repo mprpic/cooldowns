@@ -810,6 +810,10 @@ newly published versions in quarantine for a configurable period before making t
 across ecosystems (npm, PyPI, Maven, and others) and ensures that even tools without native cooldown support benefit
 from a delay.
 
+For self-hosted npm setups, the open-source [Verdaccio](https://verdaccio.org/) registry proxy provides the same via
+its bundled `@verdaccio/package-filter` plugin: set `minAgeDays` to hide any version published less than N days ago
+(the plugin is disabled by default).
+
 ## Container images
 
 The configurations above work fine in your developer setups, but if you're building container images for development,
@@ -1044,6 +1048,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-08-03**: Added Verdaccio to the registry-level proxy cooldown options.
 - **2026-08-03**: Added PDM cooldown documentation.
 - **2026-08-03**: Noted Yarn's default one-day cooldown (enabled since 4.15.0).
 - **2026-08-03**: Noted Deno's default 24-hour cooldown (enabled since 2.9).
