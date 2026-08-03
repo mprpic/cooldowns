@@ -13,12 +13,13 @@
 #   cooldowns.sh check
 #
 # Changelog:
+#   2026-08-03  Added pdm support (strategy.exclude-newer via pdm config, pdm >= 2.27.0)
 #   2026-06-04  Added bundler support (BUNDLE_COOLDOWN export, Bundler >= 4.0.13)
 #   2026-06-01  Added poetry support (solver.min-release-age, poetry >= 2.4.0)
 #   2026-05-28  Use pnpm config set --global for pnpm to avoid npm unknown-key warnings
 #   2026-05-07  Added pip 26.1+ duration format support (e.g. P3D)
 #
-# Supported tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo, bundler
+# Supported tools: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler
 #
 # Where configs are written:
 #   pip    Shell wrapper (pip < 26.1) or env var export (pip >= 26.1)
@@ -27,6 +28,7 @@
 #          - pip < 26.1 uses shell wrapper with absolute timestamps
 #   uv     UV_EXCLUDE_NEWER export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #   poetry solver.min-release-age via poetry config (writes to poetry's config.toml)
+#   pdm    strategy.exclude-newer via pdm config (writes to pdm's global config.toml)
 #   npm    min-release-age in ~/.npmrc
 #   pnpm   minimum-release-age via pnpm config set --global (writes to pnpm's global rc)
 #   yarn   YARN_NPM_MINIMAL_AGE_GATE export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
@@ -199,6 +201,7 @@ duration_for_tool() {
     local tool="$2"
     case "$tool" in
         uv)       echo "$days days" ;;
+        pdm)      echo "${days}d" ;;                     # relative duration
         npm)      echo "$days" ;;                       # days
         pnpm)     echo $(( days * 24 * 60 )) ;;         # minutes
         bun)      echo $(( days * 24 * 60 * 60 )) ;;    # seconds
@@ -380,6 +383,33 @@ set_poetry() {
 
     poetry config solver.min-release-age "$days"
     echo "poetry: set solver.min-release-age=$days in poetry config"
+}
+
+set_pdm() {
+    local days="$1"
+    if ! command -v pdm &>/dev/null; then
+        echo "pdm: not installed, skipping"
+        return
+    fi
+
+    local pdm_version
+    pdm_version=$(pdm --version 2>/dev/null | awk '{ print $NF }')
+    if [[ -n "$pdm_version" ]] && ! version_gte "$pdm_version" "2.27.0"; then
+        echo "pdm: strategy.exclude-newer requires pdm >= 2.27.0 (found $pdm_version), skipping"
+        return
+    fi
+
+    local existing
+    existing=$(pdm config strategy.exclude-newer 2>/dev/null || true)
+    if [[ -n "$existing" && "$existing" != "None" ]]; then
+        echo "pdm: strategy.exclude-newer is already set to '$existing', skipping"
+        return
+    fi
+
+    local duration
+    duration=$(duration_for_tool "$days" pdm)
+    pdm config strategy.exclude-newer "$duration"
+    echo "pdm: set strategy.exclude-newer=$duration in pdm config"
 }
 
 set_npmrc_key() {
@@ -585,7 +615,7 @@ SHELL
 do_set() {
     if [[ $# -lt 2 ]]; then
         echo "usage: cooldowns.sh set <tool> <duration>" >&2
-        echo "tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo, bundler" >&2
+        echo "tools: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler" >&2
         return 1
     fi
 
@@ -597,6 +627,7 @@ do_set() {
         pip)   set_pip "$days" ;;
         uv)    set_uv "$days" ;;
         poetry) set_poetry "$days" ;;
+        pdm)   set_pdm "$days" ;;
         npm)   set_npm "$days" ;;
         pnpm)  set_pnpm "$days" ;;
         yarn)  set_yarn "$days" ;;
@@ -606,7 +637,7 @@ do_set() {
         bundler) set_bundler "$days" ;;
         *)
             echo "error: unknown tool '$tool'" >&2
-            echo "supported: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo, bundler" >&2
+            echo "supported: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler" >&2
             return 1
             ;;
     esac
@@ -787,6 +818,19 @@ check_poetry() {
     record poetry $STATUS_MISSING "no cooldown configured"
 }
 
+check_pdm() {
+    if command -v pdm &>/dev/null; then
+        local val
+        val=$(pdm config strategy.exclude-newer 2>/dev/null || true)
+        if [[ -n "$val" && "$val" != "None" ]]; then
+            record pdm $STATUS_OK "strategy.exclude-newer=$val (pdm config)"
+            return
+        fi
+    fi
+
+    record pdm $STATUS_MISSING "no cooldown configured"
+}
+
 check_npm() {
     local npm_major=""
     if command -v npm &>/dev/null; then
@@ -947,7 +991,7 @@ do_check() {
 
     local any_checked=false
 
-    for tool in pip uv poetry npm pnpm yarn bun deno cargo bundler; do
+    for tool in pip uv poetry pdm npm pnpm yarn bun deno cargo bundler; do
         if tool_is_relevant "$tool"; then
             any_checked=true
             "check_${tool}"
@@ -1002,7 +1046,7 @@ commands:
   set <tool> <duration>   Configure cooldown for a package manager
   check                   Check cooldown status for all installed tools
 
-tools: pip, uv, poetry, npm, pnpm, yarn, bun, deno, cargo, bundler
+tools: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler
 
 duration examples: 3d, "3 days", 7d, 1d
 
@@ -1011,6 +1055,7 @@ where configs are written (all user-wide; project-level configs are not modified
                             /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
   uv     env var export     /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
   poetry poetry config      ~/.config/pypoetry/config.toml (requires >= 2.4.0)
+  pdm    pdm config         ~/.config/pdm/config.toml (requires >= 2.27.0)
   npm    .npmrc key         ~/.npmrc
   pnpm   .npmrc key         ~/.npmrc
   yarn   env var export     /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
