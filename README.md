@@ -415,7 +415,8 @@ For more information, see [bun documentation](https://bun.com/docs/pm/cli/instal
 
 ### Deno (JavaScript/TypeScript)
 
-Deno added support for cooldowns in version 2.6. The age can be specified as a number of minutes, an ISO 8601
+Deno added support for cooldowns in version 2.6, and since version 2.9 a 24-hour cooldown is enabled by default
+(overridden by any explicit configuration). The age can be specified as a number of minutes, an ISO 8601
 duration (e.g. `P3D` for three days), or an RFC 3339 absolute timestamp. In your `deno.json` file, you can configure
 it with:
 
@@ -932,7 +933,7 @@ RUN cooldowns.sh check
 | pnpm            | Relative durations (1-day default in v11+) | `minimumReleaseAge: 4320` in `pnpm-workspace.yaml`                |
 | Yarn            | Relative durations                         | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
 | Bun             | Relative durations                         | `minimumReleaseAge = 259200` in `bunfig.toml`                     |
-| Deno            | Relative durations                         | `minimumDependencyAge: "P3D"` in `deno.json`                      |
+| Deno            | Relative durations (24h default in 2.9+)   | `minimumDependencyAge: "P3D"` in `deno.json`                      |
 | Cargo           | Unstable on nightly; third-party           | `cargo cooldown <cmd>` via `cargo-cooldown` crate                 |
 | Bundler         | Relative durations (4.0.13+)               | `bundle config set cooldown 3` / `--cooldown 3`                   |
 | Hex             | Relative durations (2.5.0+)                | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
@@ -1022,6 +1023,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-08-03**: Noted Deno's default 24-hour cooldown (enabled since 2.9).
 - **2026-08-03**: Dependabot defaults to a three-day cooldown for version updates.
 - **2026-08-03**: Hex (Elixir) cooldown feature shipped in v2.5.0.
 - **2026-07-22**: Added npm 12 `min-release-age-exclude` per-package bypass documentation.
