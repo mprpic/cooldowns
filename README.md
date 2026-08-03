@@ -299,7 +299,7 @@ whose version would have been excluded, while `poetry` fails open and will allow
 
 Upload times are only supported by the JSON-version of the PyPI Simple API, so tools that only support the HTML format
 do not support upload times. For example, in JFrog Artifactory settings you have to enable the PyPI Simple JSON API,
-which is only available as of their February 2026 (SaaS) or April 2026 (self-hosted) releases.
+which is only available as of Artifactory 7.139.1 (SaaS, February 2026) or 7.146 (self-hosted, April 2026).
 
 ## JavaScript Ecosystem
 
