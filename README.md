@@ -321,8 +321,8 @@ min-release-age = 3 # days
 available before it will be considered for installation. In true JavaScript fashion, the other JS package managers chose
 completely different units of time.
 
-npm 12 added `min-release-age-exclude` for per-package exemptions. The value accepts package names or
-[minimatch](https://www.npmjs.com/package/minimatch) glob patterns. In your `.npmrc`:
+npm added `min-release-age-exclude` for per-package exemptions (available in npm 11.19.0+ and npm 12). The value
+accepts package names or [minimatch](https://www.npmjs.com/package/minimatch) glob patterns. In your `.npmrc`:
 
 ```ini
 min-release-age = 3
@@ -331,8 +331,8 @@ min-release-age-exclude[] = my-internal-pkg
 ```
 
 Only the named package is exempt; its transitive dependencies still follow the release-age policy unless they also
-match a pattern. On npm 11 (which lacks `min-release-age-exclude`), you can temporarily override the cooldown for the
-entire install by passing `--min-release-age=0` on the command line.
+match a pattern. To temporarily disable the cooldown for an entire install (e.g. on npm releases that predate
+`min-release-age-exclude`), pass `--min-release-age=0` on the command line.
 
 See [npm documentation](https://docs.npmjs.com/cli/v12/using-npm/config#min-release-age) for more information.
 
@@ -929,7 +929,7 @@ RUN cooldowns.sh check
 | pipenv          | Relative durations (2026.6.2+)             | `cool-down-period = "3d"` in `Pipfile`                            |
 | poetry          | Relative durations                         | `solver.min-release-age=3` in `pyproject.toml`                    |
 | pixi            | Relative durations (0.67.0+)               | `exclude-newer = "3d"` in `pixi.toml`                             |
-| npm             | Relative durations; exclusions (12+)       | `min-release-age=3` in `.npmrc`                                   |
+| npm             | Relative durations; exclusions (11.19+)    | `min-release-age=3` in `.npmrc`                                   |
 | pnpm            | Relative durations (1-day default in v11+) | `minimumReleaseAge: 4320` in `pnpm-workspace.yaml`                |
 | Yarn            | Relative durations (1-day default, 4.15+)  | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
 | Bun             | Relative durations                         | `minimumReleaseAge = 259200` in `bunfig.toml`                     |
