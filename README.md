@@ -451,10 +451,11 @@ information.
 
 ### Cargo
 
-Cargo doesn't have native cooldown support yet. Cargo 1.94 added `pubtime` fields to the crate index (the prerequisite),
-and an RFC ([#3923](https://github.com/rust-lang/rfcs/blob/master/text/3923-cargo-min-publish-age.md)) for native
-cooldowns has been accepted, but the implementation is still in progress
-([#17009](https://github.com/rust-lang/cargo/issues/17009)).
+Cargo doesn't have native cooldown support on stable yet. Cargo 1.94 added `pubtime` fields to the crate index (the
+prerequisite), and an RFC ([#3923](https://github.com/rust-lang/rfcs/blob/master/text/3923-cargo-min-publish-age.md))
+for native cooldowns has been accepted. The implementation has landed on nightly as the unstable `-Zmin-publish-age`
+feature (available since nightly-2026-06-21); stabilization is tracked in
+[#17009](https://github.com/rust-lang/cargo/issues/17009).
 
 Until that is implemented, the third-party [`cargo-cooldown`](https://crates.io/crates/cargo-cooldown) crate can be used
 instead. Note that `cargo-cooldown` is a cargo subcommand, not a transparent wrapper. You must use
@@ -932,7 +933,7 @@ RUN cooldowns.sh check
 | Yarn            | Relative durations                         | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
 | Bun             | Relative durations                         | `minimumReleaseAge = 259200` in `bunfig.toml`                     |
 | Deno            | Relative durations                         | `minimumDependencyAge: "P3D"` in `deno.json`                      |
-| Cargo           | Third-party only                           | `cargo cooldown <cmd>` via `cargo-cooldown` crate                 |
+| Cargo           | Unstable on nightly; third-party           | `cargo cooldown <cmd>` via `cargo-cooldown` crate                 |
 | Bundler         | Relative durations (4.0.13+)               | `bundle config set cooldown 3` / `--cooldown 3`                   |
 | Hex             | Relative durations (2.5.0+)                | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
 | Scala Steward   | Relative durations (0.38.0+)               | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
