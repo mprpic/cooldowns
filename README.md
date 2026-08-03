@@ -375,8 +375,8 @@ See [pnpm v10 documentation](https://pnpm.io/10.x/settings#minimumreleaseage) fo
 
 ### Yarn (JavaScript/Node.js)
 
-Yarn added support for cooldowns via the `npmMinimalAgeGate` configuration option in version 4.10.0; in your
-`.yarnrc.yml` file, add:
+Yarn added support for cooldowns via the `npmMinimalAgeGate` configuration option in version 4.10.0, and since
+version 4.15.0 a one-day (`1d`) gate is applied by default. In your `.yarnrc.yml` file, add:
 
 ```yaml
 npmMinimalAgeGate: "3d"
@@ -931,7 +931,7 @@ RUN cooldowns.sh check
 | pixi            | Relative durations (0.67.0+)               | `exclude-newer = "3d"` in `pixi.toml`                             |
 | npm             | Relative durations; exclusions (12+)       | `min-release-age=3` in `.npmrc`                                   |
 | pnpm            | Relative durations (1-day default in v11+) | `minimumReleaseAge: 4320` in `pnpm-workspace.yaml`                |
-| Yarn            | Relative durations                         | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
+| Yarn            | Relative durations (1-day default, 4.15+)  | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
 | Bun             | Relative durations                         | `minimumReleaseAge = 259200` in `bunfig.toml`                     |
 | Deno            | Relative durations (24h default in 2.9+)   | `minimumDependencyAge: "P3D"` in `deno.json`                      |
 | Cargo           | Unstable on nightly; third-party           | `cargo cooldown <cmd>` via `cargo-cooldown` crate                 |
@@ -1023,6 +1023,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-08-03**: Noted Yarn's default one-day cooldown (enabled since 4.15.0).
 - **2026-08-03**: Noted Deno's default 24-hour cooldown (enabled since 2.9).
 - **2026-08-03**: Dependabot defaults to a three-day cooldown for version updates.
 - **2026-08-03**: Hex (Elixir) cooldown feature shipped in v2.5.0.
