@@ -114,6 +114,9 @@ If you use the shell wrapper function from the [pip < 26.1](#pip--261) section, 
 See [pip documentation](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-uploaded-prior-to) for more information
 about this configuration option.
 
+Tools built on pip inherit this too: `pip-compile` (from [pip-tools](https://pip-tools.readthedocs.io/)) exposes
+`--uploaded-prior-to` as a passthrough option and honors `PIP_UPLOADED_PRIOR_TO` (requires pip >= 26.0).
+
 #### pip < 26.1
 
 Older pip versions (26.0) only accept absolute timestamps for `--uploaded-prior-to`. Since absolute timestamps go
@@ -758,8 +761,8 @@ Maven/Gradle (Java) don't have native cooldowns either, but the third-party [Sca
 described above can apply cooldowns to Maven projects (though it's not heavily used outside of Scala; note that
 Scala Steward does not officially support Gradle).
 
-One related note: the community-run [gem.coop package index](https://gem.coop), an alternative to RubyGems,
-enforces a 48-hour delay on newly published gems at the registry level.
+One related note: the community-run [gem.coop package index](https://gem.coop), an alternative to RubyGems, is
+beta-testing a 48-hour delay on newly published gems at the registry level.
 
 ## Dependency update bots
 
