@@ -546,9 +546,10 @@ information.
 
 ### Hex
 
-[Hex](https://hex.pm/) merged a built-in cooldown feature in [pull request #1160](https://github.com/hexpm/hex/pull/1160);
-it will be available in the next Hex release after v2.4.2. The `cooldown` config key accepts duration strings in the form
-`<N>d` (days), `<N>w` (weeks), or `<N>mo` (months). To set a global three-day cooldown:
+[Hex](https://hex.pm/) introduced a built-in cooldown feature in version
+[2.5.0](https://github.com/hexpm/hex/releases/tag/v2.5.0), merged in
+[pull request #1160](https://github.com/hexpm/hex/pull/1160). The `cooldown` config key accepts duration strings
+in the form `<N>d` (days), `<N>w` (weeks), or `<N>mo` (months). To set a global three-day cooldown:
 
 ```bash
 mix hex.config cooldown 3d
@@ -929,7 +930,7 @@ RUN cooldowns.sh check
 | Deno            | Relative durations                         | `minimumDependencyAge: "P3D"` in `deno.json`                      |
 | Cargo           | Third-party only                           | `cargo cooldown <cmd>` via `cargo-cooldown` crate                 |
 | Bundler         | Relative durations (4.0.13+)               | `bundle config set cooldown 3` / `--cooldown 3`                   |
-| Hex             | Relative durations (unreleased)            | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
+| Hex             | Relative durations (2.5.0+)                | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
 | Scala Steward   | Relative durations (0.38.0+)               | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
 | GitHub Actions  | Third-party only (1-day default)           | `npx actions-up --min-age 3` via `actions-up`                     |
 | Mise            | Relative durations                         | `settings.minimum_release_age = "3d"` in `mise.toml`              |
@@ -1016,6 +1017,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-08-03**: Hex (Elixir) cooldown feature shipped in v2.5.0.
 - **2026-07-22**: Added npm 12 `min-release-age-exclude` per-package bypass documentation.
 - **2026-07-22**: Added pipenv cooldown documentation.
 - **2026-07-21**: Added GitHub Actions cooldown documentation (`actions-up`).
