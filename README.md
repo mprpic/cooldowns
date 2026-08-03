@@ -872,7 +872,7 @@ COPY pip-cooldown.sh /etc/profile.d/pip-cooldown.sh
 
 The [`cooldowns.sh`](https://github.com/mprpic/cooldowns/blob/main/cooldowns.sh) script is a small helper that
 configures cooldowns across multiple package managers in a single command and can verify that everything is set up
-correctly. It supports pip, uv, npm, pnpm, Yarn, Bun, Deno, and Cargo.
+correctly. It supports pip, uv, poetry, pdm, npm, pnpm, Yarn, Bun, Deno, Cargo, and Bundler.
 
 ### Setting cooldowns
 
@@ -890,6 +890,7 @@ location depends on the tool:
 | pip     | Env var export (26.1+) or shell wrapper (older)  | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
 | uv      | Env var export                                   | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
 | poetry  | `poetry config` setting                          | `~/.config/pypoetry/config.toml`               |
+| pdm     | `pdm config` setting (requires PDM >= 2.27.0)    | `~/.config/pdm/config.toml`                    |
 | npm     | `.npmrc` key                                     | `~/.npmrc`                                     |
 | pnpm    | `.npmrc` key                                     | `~/.npmrc`                                     |
 | yarn    | Env var export                                   | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
