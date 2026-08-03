@@ -1011,27 +1011,45 @@ configuration.
 
 ## FAQ
 
-### Would cooldowns still work if everyone adopted them?
+### How long should my cooldown be?
 
-Yes. Security vendors and researchers continuously scan newly published packages using automated static and dynamic
-analysis tools. They are not using cooldowns themselves; their entire purpose is to catch malicious releases as early as
-possible. When they flag a package, the registry pulls it, typically within hours. So even in a world where every
-developer uses cooldowns, malicious packages would still be detected and removed well before the cooldown window
-expires.
+A longer cooldown catches more compromised releases, while a shorter one gets you fixes and features sooner. The
+(minimal) [analysis above](#does-it-actually-work) found that most supply-chain attacks are caught within a week,
+and a three-day cooldown would have blocked the majority of recent (2025/2026) incidents. As a rough guide:
+
+- **Aggressive (12–24 hours):** covers the fast-exploitation window; many attacks are caught within hours.
+- **Balanced (3 days):** the default several tools now ship (Dependabot, and Renovate's npm best-practices preset).
+- **Conservative (7 days):** catches nearly all historical incidents, at the cost of slower updates.
+
+Several package managers now enable a cooldown by default: pnpm (1 day since v11), Deno (24 hours since 2.9), and
+Yarn (1 day since 4.15). Pick a number you're comfortable with and apply it consistently; even one day makes a real
+difference.
+
+### Would cooldowns still work if everyone adopted them? Am I offloading my risks onto others?
+
+Security vendors and researchers continuously scan newly published packages using automated static and dynamic
+analysis tools. They are not using cooldowns themselves; their entire purpose is to catch malicious releases as
+early as possible. When they flag a package, the registry pulls it, typically within hours. So even in a world
+where every developer uses cooldowns, malicious packages would still be detected and removed well before the
+cooldown window expires. This also means that adopting cooldowns does not merely offload _your_ risks onto others,
+but relies on the work of security vendors and researchers to catch malicious packages first.
 
 ### Don't cooldowns block security fixes?
 
 Cooldowns are one part of a secure supply chain, not the whole thing. The other part is active vulnerability
 scanning and dependency update bots. Both [Dependabot](https://docs.github.com/en/code-security/dependabot) and
-[Renovate](https://docs.renovatebot.com/) exempt security updates from cooldowns by default, so PRs for critical
-CVE fixes still arrive immediately. For manual workflows, most package managers let you bypass cooldowns on a
-per-package basis. When a CVE needs an urgent fix, you momentarily override the cooldown for that specific package,
-install the fix, and remove the exemption. See [Bypassing cooldowns](#bypassing-cooldowns) for per-tool syntax.
+[Renovate](https://docs.renovatebot.com/) exempt security updates from cooldowns automatically, so PRs for critical
+CVE fixes still arrive immediately.
+
+Native package-manager cooldowns can't tell a security fix from any other new release, they only filter by age.
+A CVE fix published inside the cooldown window is held back too. You can override behavior manually: exempt the
+package where your tool supports it (uv, poetry, npm, pnpm, Yarn, Bun, Deno, Cargo, and others), or override the
+whole install where it doesn't (notably pip). See [Bypassing cooldowns](#bypassing-cooldowns) for per-tool syntax.
 
 ### Should cooldowns replace lockfiles?
 
 No. If your dependencies are locked (via `package-lock.json`, `uv.lock`, `poetry.lock`, etc.) and you only update
-the lockfile deliberately, you're already protected most of the time: you won't pull in a newly published malicious
+the lockfile deliberately, you're already protected most of the time. You won't pull in a newly published malicious
 version unless you explicitly run an update. Cooldowns and lockfiles solve different problems. Lockfiles ensure
 reproducible installs; cooldowns protect the moment when you *do* resolve new versions. If you use automated
 dependency update bots like Renovate or Dependabot to keep your lockfile current, configure cooldowns in those tools
@@ -1043,9 +1061,13 @@ It is worth noting that cooldowns don't protect against typosquatting, long-term
 vulnerabilities in packages you already have installed. Attacks like the xz-utils compromise, where a trusted maintainer
 introduced a backdoor over the course of months, are fundamentally different from the compromises that cooldowns target.
 Those attacks are also rare and require a much higher level of sophistication; they are better addressed by code review,
-reproducible builds, and distribution-level auditing. A cooldown can also delay legitimate security patches, so pair
-cooldowns with active vulnerability alerting (`pip-audit`, `npm audit`, Dependabot security updates) to make sure
-critical fixes still reach you quickly.
+reproducible builds, and distribution-level auditing.
+
+A cooldown can also delay legitimate security patches, so pair cooldowns with active vulnerability alerting
+(`pip-audit`, `npm audit`, Dependabot security updates) to make sure critical fixes still reach you quickly. And
+cooldowns only work if the malicious release is caught during the waiting period: a patient attacker can try to
+outlast one by delaying the payload so it activates only after the cooldown expires, though that only gives
+scanners and researchers more time to catch them first.
 
 That said, most real-world package compromises follow the same pattern: an attacker publishes a malicious version, and
 it gets caught and pulled within hours or days. A three-day cooldown would have blocked the majority of recent incidents
