@@ -253,6 +253,26 @@ poetry config solver.min-release-age-exclude-source "private-repo"
 If the package registry does not expose upload times for a release, `poetry` fails open and will allow a release to be installed.
 See [Private PyPI registries](#private-pypi-registries).
 
+### PDM
+
+[PDM](https://pdm-project.org/) added support for `exclude-newer` in the `[tool.pdm.resolution]` table of
+`pyproject.toml` in version 2.26.9. It accepts a relative duration (`7d`, `12h`, `3w`) or an absolute UTC date or
+timestamp. For a three-day cooldown:
+
+```toml
+[tool.pdm.resolution]
+exclude-newer = "3d"
+```
+
+To set it globally for all projects (written to PDM's user config, PDM 2.27.0+), run:
+
+```bash
+pdm config strategy.exclude-newer 3d
+```
+
+Add `--local` to scope it to the current project's `.pdm.toml` instead. The same value can also be passed per-command
+via `pdm lock --exclude-newer 3d`. There is no environment variable equivalent.
+
 ### conda
 
 The conda package manager does not have a native cooldown feature, but
@@ -928,6 +948,7 @@ RUN cooldowns.sh check
 | uv              | Relative durations                         | `exclude-newer = "3 days"` in `uv.toml` / `pyproject.toml`        |
 | pipenv          | Relative durations (2026.6.2+)             | `cool-down-period = "3d"` in `Pipfile`                            |
 | poetry          | Relative durations                         | `solver.min-release-age=3` in `pyproject.toml`                    |
+| PDM             | Relative durations (2.26.9+)               | `exclude-newer = "3d"` in `pyproject.toml`                        |
 | pixi            | Relative durations (0.67.0+)               | `exclude-newer = "3d"` in `pixi.toml`                             |
 | npm             | Relative durations; exclusions (11.19+)    | `min-release-age=3` in `.npmrc`                                   |
 | pnpm            | Relative durations (1-day default in v11+) | `minimumReleaseAge: 4320` in `pnpm-workspace.yaml`                |
@@ -1023,6 +1044,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-08-03**: Added PDM cooldown documentation.
 - **2026-08-03**: Noted Yarn's default one-day cooldown (enabled since 4.15.0).
 - **2026-08-03**: Noted Deno's default 24-hour cooldown (enabled since 2.9).
 - **2026-08-03**: Dependabot defaults to a three-day cooldown for version updates.
