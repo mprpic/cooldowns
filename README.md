@@ -1051,7 +1051,7 @@ whole install where it doesn't (notably pip). See [Bypassing cooldowns](#bypassi
 No. If your dependencies are locked (via `package-lock.json`, `uv.lock`, `poetry.lock`, etc.) and you only update
 the lockfile deliberately, you're already protected most of the time. You won't pull in a newly published malicious
 version unless you explicitly run an update. Cooldowns and lockfiles solve different problems. Lockfiles ensure
-reproducible installs; cooldowns protect the moment when you *do* resolve new versions. If you use automated
+reproducible installs; cooldowns protect the moment when you _do_ resolve new versions. If you use automated
 dependency update bots like Renovate or Dependabot to keep your lockfile current, configure cooldowns in those tools
 so that new versions still go through a waiting period before a PR is opened.
 
