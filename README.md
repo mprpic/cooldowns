@@ -66,8 +66,27 @@ For project-level config in `pyproject.toml`:
 exclude-newer = "3 days"
 ```
 
-uv also supports per-package overrides via `exclude-newer-package`. To exempt a specific package from the cooldown
-(e.g. to pull an urgent security fix), set it to `false` in your `pyproject.toml` or `uv.toml`:
+uv also supports per-package overrides via `exclude-newer-package`. The value can be either a date/time cutoff (an
+RFC 3339 timestamp, a friendly duration such as `1 day`, or an ISO 8601 duration such as `P1D`) or `false`.
+
+To pull an urgent security fix, prefer a dated cutoff over `false`. Pick a timestamp just after the upload time of the
+release you need, and only that release gets through:
+
+```toml
+[tool.uv]
+exclude-newer = "3 days"
+exclude-newer-package = { django = "2026-08-05T00:00:00Z" }
+```
+
+uv compares the cutoff against upload times with sub-second precision, so round the timestamp forward rather than
+copying the upload time verbatim.
+
+**This cutoff is an absolute timestamp, not a rolling window — it does not advance with time.** Left in place, it
+doesn't expire; it permanently pins the package to whatever was newest as of that date and blocks every later
+release forever. So it still needs to be removed once the general cooldown has caught up to it — it just fails
+differently than `false` if forgotten: it freezes updates instead of permanently exempting them.
+
+Setting a package to `false` exempts it from the cooldown entirely, with no expiry:
 
 ```toml
 [tool.uv]
@@ -75,7 +94,13 @@ exclude-newer = "3 days"
 exclude-newer-package = { setuptools = false }
 ```
 
-There is no CLI flag or environment variable for `exclude-newer-package`; it can only be set in a config file.
+`exclude-newer-package` can also be passed on the command line
+(`--exclude-newer-package django=2026-08-05T00:00:00Z`). A command-line
+value is recorded in `uv.lock` under `[options.exclude-newer-package]`, but it is not written back to
+`pyproject.toml`/`uv.toml` — and on the next resolve uv compares the lockfile's recorded options against the config,
+finds nothing that accounts for the entry, and drops it. So a plain `uv lock` re-resolves the exception away and
+`uv lock --check` exits non-zero, even when the resolved versions themselves would not change. Keeping the exception
+in the config file is what makes it reproducible.
 
 Refer to [uv documentation](https://docs.astral.sh/uv/reference/settings/#exclude-newer) for more information about this
 configuration setting.
@@ -982,24 +1007,24 @@ When a vulnerability is disclosed and a fix is already available, you may need t
 without waiting for the cooldown to expire. Most package managers provide a way to exempt individual packages or
 disable the cooldown for a single run. The table below summarizes the bypass mechanism for each tool:
 
-| Package Manager | Per-package bypass | How to bypass                                                                                       |
-| --------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
-| pip             | No                 | Unset env var or override on CLI; see [pip section](#pip)                                           |
-| uv              | Yes                | `exclude-newer-package = { pkg = false }` in config file                                            |
-| pipenv          | No                 | Remove `cool-down-period` from `Pipfile` or install directly with pip                               |
-| poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                                                 |
-| pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`                                     |
-| npm             | Yes (npm 12+)      | `min-release-age-exclude[]` in `.npmrc` (globs supported)                                           |
-| pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)                                   |
-| Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                                                      |
-| Bun             | Yes                | `minimumReleaseAgeExcludes` list in `bunfig.toml`                                                   |
-| Deno            | Yes                | Object form with `exclude` array in `deno.json`                                                     |
-| Cargo           | Yes                | `[[allow.package]]` / `[[allow.exact]]` in `cooldown.toml`                                          |
-| Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                                     |
-| Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
-| Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`                                     |
-| actions-up      | Per-run only       | `--min-age 0` disables for run; select only the needed action                                       |
-| mise            | Yes                | Per-tool `minimum_release_age` or `minimum_release_age_excludes`; pinned versions auto-bypass       |
+| Package Manager | Per-package bypass | How to bypass                                                                                 |
+|-----------------|--------------------|-----------------------------------------------------------------------------------------------|
+| pip             | No                 | Unset env var or override on CLI; see [pip section](#pip)                                     |
+| uv              | Yes                | `exclude-newer-package = { pkg = "<timestamp>" }` or `= false`; both must be manually removed |
+| pipenv          | No                 | Remove `cool-down-period` from `Pipfile` or install directly with pip                         |
+| poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                                           |
+| pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`                               |
+| npm             | Yes (npm 12+)      | `min-release-age-exclude[]` in `.npmrc` (globs supported)                                     |
+| pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)                             |
+| Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                                                |
+| Bun             | Yes                | `minimumReleaseAgeExcludes` list in `bunfig.toml`                                             |
+| Deno            | Yes                | Object form with `exclude` array in `deno.json`                                               |
+| Cargo           | Yes                | `[[allow.package]]` / `[[allow.exact]]` in `cooldown.toml`                                    |
+| Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                               |
+| Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                          |
+| Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`                               |
+| actions-up      | Per-run only       | `--min-age 0` disables for run; select only the needed action                                 |
+| mise            | Yes                | Per-tool `minimum_release_age` or `minimum_release_age_excludes`; pinned versions auto-bypass |
 
 **Important:** always revert bypass exemptions after installing the fix. A forgotten entry in a config file
 permanently weakens your cooldown protection for that package. For tools with per-package support, add the
@@ -1075,6 +1100,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-08-07**: Documented uv's date/time cutoff form of `exclude-newer-package`.
 - **2026-08-03**: Noted Dart/pub's open cooldown proposal.
 - **2026-08-03**: Added Verdaccio to the registry-level proxy cooldown options.
 - **2026-08-03**: Added PDM cooldown documentation.
