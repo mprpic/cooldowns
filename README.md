@@ -880,6 +880,19 @@ for details.
 
 Both Renovate and Dependabot exempt security updates from cooldowns, so critical CVE fixes still get PRs immediately.
 
+## Security scanners and PR checks
+
+Some security products enforce a cooldown at review time rather than at install time. That makes them a second line
+of defense in CI, and the only option for ecosystems without a native setting.
+
+- [Socket](https://docs.socket.dev/docs/cool-down-policy) raises a `recentlyPublished` alert for any package version
+  whose publish date falls inside a configurable window. The "Recently Published Alert Threshold" (0 to 365 days,
+  default 0, meaning off) is set once under Settings → Alerts → Scans and applies org-wide to every ecosystem Socket
+  scans: npm, PyPI, Maven, Cargo, RubyGems, NuGet, Go, Conda, and OpenVSX.
+- [StepSecurity](https://docs.stepsecurity.io/github/github-checks/configuration) offers a "Package Cooldown" GitHub
+  check that fails a pull request introducing or updating a dependency published within the last N days (default 2).
+  It covers npm, PyPI, Maven, and NuGet, and the window is configured per organization or repository.
+
 ## Registry-level proxies
 
 Organizations that run a caching proxy such as JFrog Artifactory or Sonatype Nexus in front of public registries can
@@ -887,6 +900,12 @@ enforce cooldowns at the registry level, overriding any project or CI-specific c
 newly published versions in quarantine for a configurable period before making them available for download. This works
 across ecosystems (npm, PyPI, Maven, and others) and ensures that even tools without native cooldown support benefit
 from a delay.
+
+[Cloudsmith](https://docs.cloudsmith.com/supply-chain-security/epm/cooldown-policy) takes a different approach from
+quarantine: its cooldown policy filters at the index level, hiding versions younger than `within_past_days` from the
+package index entirely, so package managers resolve to an older version instead of failing a download. Policies are
+written in Rego, scoped with `included_repositories` and `excluded_repositories`, and cover Cargo, Conda, Docker, Go,
+Maven, npm, NuGet, and Python.
 
 For self-hosted npm setups, the open-source [Verdaccio](https://verdaccio.org/) registry proxy provides the same via
 its bundled `@verdaccio/package-filter` plugin: set `minAgeDays` to hide any version published less than N days ago
@@ -1152,6 +1171,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-09-14**: Added Socket and StepSecurity PR-time cooldown checks and Cloudsmith's index-level cooldown policy.
 - **2026-09-14**: Added npm-check-updates `--cooldown` documentation.
 - **2026-09-14**: Documented Dependabot's cooldown `include`/`exclude` lists.
 - **2026-08-03**: Noted Dart/pub's open cooldown proposal.
