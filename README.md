@@ -1190,6 +1190,9 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+<details markdown>
+<summary>Show all entries</summary>
+
 - **2026-09-14**: Added AWS CodeArtifact's age-gating pattern and a note on Homebrew's internal cooldown.
 - **2026-09-14**: Added Socket and StepSecurity PR-time cooldown checks and Cloudsmith's index-level cooldown policy.
 - **2026-09-14**: Added npm-check-updates `--cooldown` documentation.
@@ -1214,3 +1217,5 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 - **2026-05-26**: Added pixi documentation.
 - **2026-05-21**: Added poetry configuration documentation and a note on private PyPI registries.
 - **2026-05-08**: Documented pip 26.1+ duration format support.
+
+</details>
