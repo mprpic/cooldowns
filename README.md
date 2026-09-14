@@ -293,8 +293,12 @@ a distribution whose index entry lacks an `upload-time` field is treated as unav
 
 ### conda
 
-The conda package manager does not have a native cooldown feature, but
-issue [#15759](https://github.com/conda/conda/issues/15759) proposed its implementation.
+The conda package manager does not have a native cooldown feature in any released version yet, but one is on the way.
+The tracking issue [#15759](https://github.com/conda/conda/issues/15759) covers the whole ecosystem, and the core
+`--exclude-newer` policy ([#15761](https://github.com/conda/conda/pull/15761)) was merged on 2026-08-21 for conda
+26.9.0. Solver backends (conda-libmamba-solver, conda-rattler-solver) and conda-build support are still in review.
+On the mamba side, [mamba 2.9.0](https://github.com/mamba-org/mamba/releases/tag/2.9.0) (2026-08-07) shipped the
+underlying `--exclude-newer` primitive in libmamba, but micromamba does not enforce it yet.
 
 ### pixi
 
