@@ -381,7 +381,12 @@ minimumReleaseAgeExclude:
 - react
 ```
 
-See [pnpm documentation](https://pnpm.io/settings#minimumreleaseage) for more information.
+A couple of related settings are worth knowing about. Since pnpm 12.3.0, an explicitly configured
+`minimumReleaseAge` is strict by default: when no version of a dependency satisfies the cooldown, the install fails
+instead of silently falling back to an older version. And `minimumReleaseAgeIgnoreMissingTime` (default `true`) makes
+pnpm fail open for registries that don't return publish times. See the
+[pnpm documentation](https://pnpm.io/settings/dependency-resolution#minimumreleaseage) for these and other related
+settings.
 
 #### pnpm v10
 
