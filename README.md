@@ -508,6 +508,24 @@ shared between npm and Deno tooling. Unlike the Deno-native settings, the npm ke
 
 See [deno documentation](https://docs.deno.com/runtime/packages/supply_chain/) for more information.
 
+### npm-check-updates (JavaScript/Node.js)
+
+[npm-check-updates](https://github.com/raineorshine/npm-check-updates) (`ncu`) bumps the version ranges in
+`package.json` rather than installing packages, so it needs its own cooldown to avoid pointing a range at a
+freshly published version. It added a `--cooldown` option in version 18.2.0. The value is a number of days or, since
+19.4.0, a string with a unit (`7d`, `12h`, `30m`):
+
+```bash
+npx npm-check-updates --cooldown 3
+```
+
+Since 20.0.0, `ncu` picks up the cooldown from the active package manager's own configuration (`min-release-age` for
+npm, `minimumReleaseAge` for pnpm, `npmMinimalAgeGate` for Yarn), so a package manager cooldown covers it with no
+extra flags. Since 22.0.0, a package whose latest version is inside the cooldown window falls back to the newest
+version that passes it instead of being skipped. For per-package control, `cooldown` accepts a predicate function in
+`.ncurc.js` (19.1.0+). See the
+[cooldown documentation](https://github.com/raineorshine/npm-check-updates#cooldown) for details.
+
 ## Rust Ecosystem
 
 ### Cargo
@@ -1020,6 +1038,7 @@ RUN cooldowns.sh check
 | Yarn            | Relative durations (1-day default, 4.15+)  | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
 | Bun             | Relative durations                         | `minimumReleaseAge = 259200` in `bunfig.toml`                     |
 | Deno            | Relative durations (24h default in 2.9+)   | `minimumDependencyAge: "P3D"` in `deno.json`                      |
+| npm-check-updates | Relative durations (18.2.0+)             | `ncu --cooldown 3`; reads npm/pnpm/Yarn cooldown config (20.0.0+) |
 | Cargo           | Unstable on nightly; third-party           | `cargo cooldown <cmd>` via `cargo-cooldown` crate                 |
 | Bundler         | Relative durations (4.0.13+)               | `bundle config set cooldown 3` / `--cooldown 3`                   |
 | Hex             | Relative durations (2.5.0+)                | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
@@ -1051,6 +1070,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                                                      |
 | Bun             | Yes                | `minimumReleaseAgeExcludes` list in `bunfig.toml`                                                   |
 | Deno            | Yes                | Object form with `exclude` array in `deno.json`                                                     |
+| npm-check-updates | Yes              | `cooldown` predicate function in `.ncurc.js` (19.1.0+)                                              |
 | Cargo           | Yes                | `[[allow.package]]` / `[[allow.exact]]` in `cooldown.toml`                                          |
 | Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                                     |
 | Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
@@ -1132,6 +1152,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-09-14**: Added npm-check-updates `--cooldown` documentation.
 - **2026-09-14**: Documented Dependabot's cooldown `include`/`exclude` lists.
 - **2026-08-03**: Noted Dart/pub's open cooldown proposal.
 - **2026-08-03**: Added Verdaccio to the registry-level proxy cooldown options.

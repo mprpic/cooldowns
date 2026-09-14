@@ -1,4 +1,4 @@
-ignore = ["MD051"]
+ignore = ["MD051", "MD060"]  # MD060: table rows are not kept pipe-aligned
 # Content is included from README.md via pymdownx.snippets; nothing to lint here.
 exclude = ["docs/index.md"]
 
