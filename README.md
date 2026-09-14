@@ -815,7 +815,15 @@ updates:
       semver-major-days: 7
       semver-minor-days: 3
       semver-patch-days: 3
+      exclude:
+        - internal-*
 ```
+
+The optional `include` and `exclude` lists (up to 150 entries each, `*` wildcards supported) restrict which
+dependencies the cooldown applies to. `exclude` always wins over `include`, so a dependency listed in both is updated
+immediately. See the
+[Dependabot options reference](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#cooldown-)
+for details.
 
 Both Renovate and Dependabot exempt security updates from cooldowns, so critical CVE fixes still get PRs immediately.
 
@@ -1088,6 +1096,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-09-14**: Documented Dependabot's cooldown `include`/`exclude` lists.
 - **2026-08-03**: Noted Dart/pub's open cooldown proposal.
 - **2026-08-03**: Added Verdaccio to the registry-level proxy cooldown options.
 - **2026-08-03**: Added PDM cooldown documentation.
