@@ -18,9 +18,10 @@ script (`cooldowns.sh`) that automates checking and configuring cooldowns.
 - There are two separate changelogs:
   - The changelog in `cooldowns.sh` records script functionality changes
     (new tool support, behavior changes). Keep entries to a single line.
-  - The changelog in `README.md` records documentation changes only
-    (new tool docs, changes in configuration). Do not duplicate
-    script-level changes here.
+  - The changelog in `README.md` records larger documentation additions
+    only (new tool docs, new sections, new configuration options). Do not
+    add entries for corrections, wording tweaks, small clarifications, new
+    citations, or script-level changes.
 
 - Run `shellcheck cooldowns.sh` after each change to the script.
 
