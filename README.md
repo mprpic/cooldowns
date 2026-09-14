@@ -473,8 +473,10 @@ To exempt specific packages from the cooldown, use the object form:
 }
 ```
 
-See [deno documentation](https://docs.deno.com/runtime/reference/cli/install/#options-minimum-dependency-age) for more
-information.
+Since Deno 2.8, `min-release-age` in an `.npmrc` file is honored too, which is convenient when the same `.npmrc` is
+shared between npm and Deno tooling. Unlike the Deno-native settings, the npm key only accepts a whole number of days.
+
+See [deno documentation](https://docs.deno.com/runtime/packages/supply_chain/) for more information.
 
 ## Rust Ecosystem
 
