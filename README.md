@@ -778,7 +778,9 @@ These language ecosystems currently offer no native cooldown support. There's
 an [open proposal](https://github.com/golang/go/issues/76485) for Go, but it hasn't
 been accepted. [NuGet](https://github.com/NuGet/Home/issues/14657),
 [Composer](https://github.com/composer/composer/issues/12633), and
-[Dart's pub](https://github.com/dart-lang/pub/issues/4791) also have open feature requests.
+[Dart's pub](https://github.com/dart-lang/pub/issues/4791) also have open feature requests. Composer is the furthest
+along: an implementation ([#12692](https://github.com/composer/composer/pull/12692)) adding a `config.policy.cooldown`
+setting is under review for the 2.11 milestone.
 Swift Package Manager doesn't have
 native cooldowns either, and no open request exists requesting this feature as of today. Your best bet is
 locking your dependencies to exact versions, and configuring cooldowns in Dependabot or Renovate for automated updates
