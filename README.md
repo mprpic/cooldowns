@@ -497,20 +497,21 @@ See [deno documentation](https://docs.deno.com/runtime/packages/supply_chain/) f
 
 ### Cargo
 
-Cargo doesn't have native cooldown support on stable yet. Cargo 1.94 added `pubtime` fields to the crate index (the
-prerequisite), and an RFC ([#3923](https://github.com/rust-lang/rfcs/blob/master/text/3923-cargo-min-publish-age.md))
-for native cooldowns has been accepted. The implementation has landed on nightly as the unstable `-Zmin-publish-age`
-feature (available since nightly-2026-06-21); stabilization is tracked in
-[#17009](https://github.com/rust-lang/cargo/issues/17009).
+Cargo doesn't have native cooldown support on stable yet, but it is close. Cargo 1.94 added `pubtime` fields to the
+crate index (the prerequisite), an RFC
+([#3923](https://github.com/rust-lang/rfcs/blob/master/text/3923-cargo-min-publish-age.md)) for native cooldowns was
+accepted, and Cargo 1.98 shipped the implementation as the unstable `-Zmin-publish-age` feature. The stabilization
+PR ([#17335](https://github.com/rust-lang/cargo/pull/17335)) was merged on 2026-08-28 and is slated for Rust 1.100,
+expected on 2026-11-12.
 
-Until that is implemented, the third-party [`cargo-cooldown`](https://crates.io/crates/cargo-cooldown) crate can be used
-instead. Note that `cargo-cooldown` is a cargo subcommand, not a transparent wrapper. You must use
-`cargo cooldown <command>` instead of `cargo <command>` for cooldowns to take effect. Setting `COOLDOWN_MINUTES` alone
-does nothing; it is only read by the `cargo-cooldown` subcommand.
+Until then, the third-party [`cargo-cooldown`](https://crates.io/crates/cargo-cooldown) crate can be used instead.
+Note that `cargo-cooldown` is a cargo subcommand, not a transparent wrapper. You must use `cargo cooldown <command>`
+instead of `cargo <command>` for cooldowns to take effect. Since version 0.3.1 it uses the same configuration keys as
+the upcoming native feature (the older `COOLDOWN_MINUTES` variable is deprecated):
 
 ```bash
 cargo install cargo-cooldown
-export COOLDOWN_MINUTES=4320  # 3 days, in minutes
+export CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="3 days"
 cargo cooldown build
 ```
 
