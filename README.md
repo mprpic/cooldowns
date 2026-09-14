@@ -66,8 +66,10 @@ For project-level config in `pyproject.toml`:
 exclude-newer = "3 days"
 ```
 
-uv also supports per-package overrides via `exclude-newer-package`. To exempt a specific package from the cooldown
-(e.g. to pull an urgent security fix), set it to `false` in your `pyproject.toml` or `uv.toml`:
+uv also supports per-package overrides via `exclude-newer-package`. Each entry takes the same value types as
+`exclude-newer` (an RFC 3339 timestamp, a friendly duration, or an ISO 8601 duration) or `false`, which exempts the
+package from the cooldown entirely. To exempt a specific package (e.g. to pull an urgent security fix), set it to
+`false` in your `pyproject.toml` or `uv.toml`:
 
 ```toml
 [tool.uv]
@@ -75,7 +77,16 @@ exclude-newer = "3 days"
 exclude-newer-package = { setuptools = false }
 ```
 
-There is no CLI flag or environment variable for `exclude-newer-package`; it can only be set in a config file.
+The same override can be passed on the command line (once per package), which is the better choice for a one-off fix
+because nothing is left behind in a config file:
+
+```bash
+uv pip install --exclude-newer-package setuptools=false setuptools==78.1.1
+```
+
+There is no environment variable equivalent. Note that a timestamp override (e.g. `django = "2026-08-05T00:00:00Z"`)
+is a fixed cutoff, not a rolling window: once the global cooldown has caught up, it keeps blocking every later release
+of that package. Remove overrides once the fix is installed.
 
 Refer to [uv documentation](https://docs.astral.sh/uv/reference/settings/#exclude-newer) for more information about this
 configuration setting.
@@ -1030,7 +1041,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | Package Manager | Per-package bypass | How to bypass                                                                                       |
 | --------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
 | pip             | No                 | Unset env var or override on CLI; see [pip section](#pip)                                           |
-| uv              | Yes                | `exclude-newer-package = { pkg = false }` in config file                                            |
+| uv              | Yes                | `exclude-newer-package = { pkg = false }` in config or `--exclude-newer-package pkg=false`          |
 | pipenv          | No                 | Remove `cool-down-period` from `Pipfile` or install directly with pip                               |
 | poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                                                 |
 | PDM             | Yes (2.29.1+)      | `[tool.pdm.resolution.exclude-newer-override]` table, set to `false`                                |
