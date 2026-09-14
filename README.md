@@ -792,6 +792,14 @@ To configure a cooldown of three days in your `renovate.json` file, use:
 }
 ```
 
+Renovate can only age a release that has a timestamp. Since Renovate 42,
+[`minimumReleaseAgeBehaviour`](https://docs.renovatebot.com/configuration-options/#minimumreleaseagebehaviour) defaults
+to `timestamp-required`: a release without a timestamp is treated as not yet old enough, and its update is held back
+indefinitely. This matters behind artifact proxies that strip release timestamps and for registries that never return
+them (container images on GHCR, Quay, or ECR, for example). Set `"minimumReleaseAgeBehaviour": "timestamp-optional"`
+to raise such updates without an age check; Renovate then logs a warning for each one. Renovate 41 defaults to the
+fail-open behaviour, with `timestamp-required` available as an opt-in since 41.150.0.
+
 Dependabot also has a cooldown feature. Since July 2026 it applies a default three-day cooldown to version
 updates even without any configuration (security updates remain exempt). You can customize it in `dependabot.yml`:
 
