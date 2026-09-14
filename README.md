@@ -276,6 +276,21 @@ pdm config strategy.exclude-newer 3d
 Add `--local` to scope it to the current project's `.pdm.toml` instead. The same value can also be passed per-command
 via `pdm lock --exclude-newer 3d`. There is no environment variable equivalent.
 
+PDM 2.29.1 added per-package overrides in the `[tool.pdm.resolution.exclude-newer-override]` table. An override
+accepts the same formats as `exclude-newer`, or `false` to exempt the package from the cooldown entirely:
+
+```toml
+[tool.pdm.resolution]
+exclude-newer = "3d"
+
+[tool.pdm.resolution.exclude-newer-override]
+setuptools = false
+```
+
+Overrides can also be passed per-command via `pdm lock --exclude-newer-override setuptools=false`. PDM fails closed:
+a distribution whose index entry lacks an `upload-time` field is treated as unavailable unless its override is
+`false`.
+
 ### conda
 
 The conda package manager does not have a native cooldown feature, but
@@ -317,8 +332,8 @@ trusted internal channels or urgent fixes.
 
 ### Private PyPI registries
 
-If the registry does not expose upload times for a release, `uv` and `pip` will fail closed and reject to install a package
-whose version would have been excluded, while `poetry` fails open and will allow that version to be installed.
+If the registry does not expose upload times for a release, `uv`, `pip`, and `pdm` will fail closed and reject to install
+a package whose version would have been excluded, while `poetry` fails open and will allow that version to be installed.
 
 Upload times are only supported by the JSON-version of the PyPI Simple API, so tools that only support the HTML format
 do not support upload times. For example, in JFrog Artifactory settings you have to enable the PyPI Simple JSON API,
@@ -1011,6 +1026,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | uv              | Yes                | `exclude-newer-package = { pkg = false }` in config file                                            |
 | pipenv          | No                 | Remove `cool-down-period` from `Pipfile` or install directly with pip                               |
 | poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                                                 |
+| PDM             | Yes (2.29.1+)      | `[tool.pdm.resolution.exclude-newer-override]` table, set to `false`                                |
 | pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`                                     |
 | npm             | Yes (11.17+)       | `min-release-age-exclude[]` in `.npmrc` (globs supported)                                           |
 | pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)                                   |
