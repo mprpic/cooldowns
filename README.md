@@ -819,6 +819,16 @@ Maven/Gradle (Java) don't have native cooldowns either, but the third-party [Sca
 described above can apply cooldowns to Maven projects (though it's not heavily used outside of Scala; note that
 Scala Steward does not officially support Gradle).
 
+For all of these, the [security scanners](#security-scanners-and-pr-checks) and
+[registry-level proxies](#registry-level-proxies) described below can enforce a cooldown externally.
+
+Homebrew applies a one-day cooldown to npm and pip packages inside its own formula builds
+([#21919](https://github.com/Homebrew/brew/pull/21919), merged April 2026), but a user-facing setting was
+[declined](https://github.com/Homebrew/brew/issues/22659). The maintainers argue that human review of every formula
+update already provides the delay that language-ecosystem cooldowns try to recreate, and that a blanket cooldown would
+slow down critical fixes for everyone. See
+[Homebrew's supply chain security page](https://docs.brew.sh/Homebrew-Security-and-Supply-Chain) for the reasoning.
+
 One related note: the community-run [gem.coop package index](https://gem.coop), an alternative to RubyGems, is
 beta-testing a 48-hour delay on newly published gems at the registry level.
 
@@ -906,6 +916,15 @@ quarantine: its cooldown policy filters at the index level, hiding versions youn
 package index entirely, so package managers resolve to an older version instead of failing a download. Policies are
 written in Rego, scoped with `included_repositories` and `excluded_repositories`, and cover Cargo, Conda, Docker, Go,
 Maven, npm, NuGet, and Python.
+
+AWS CodeArtifact has no cooldown setting, but AWS
+[documents a CI pattern](https://docs.aws.amazon.com/codeartifact/latest/ug/package-version-age-gating.html) for
+gating on version age. CodeArtifact preserves the upstream publish timestamp when it caches a package (the npm
+packument `time` field, the Maven `Last-Modified` header, NuGet's `catalogEntry.published`, the crates.io V1 API
+`created_at`, and PyPI's `upload-time`), so a pipeline step can read it and fail the build for anything younger than
+the cutoff. Because the npm and PyPI timestamps come through in their standard formats, pnpm, Yarn, Renovate, and uv
+apply their own cooldowns through CodeArtifact without changes. Do not gate on the `publishedTime` field returned by
+`describe-package-version`: it reflects ingestion time and silently falls back to the record's last-updated time.
 
 For self-hosted npm setups, the open-source [Verdaccio](https://verdaccio.org/) registry proxy provides the same via
 its bundled `@verdaccio/package-filter` plugin: set `minAgeDays` to hide any version published less than N days ago
@@ -1171,6 +1190,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+- **2026-09-14**: Added AWS CodeArtifact's age-gating pattern and a note on Homebrew's internal cooldown.
 - **2026-09-14**: Added Socket and StepSecurity PR-time cooldown checks and Cloudsmith's index-level cooldown policy.
 - **2026-09-14**: Added npm-check-updates `--cooldown` documentation.
 - **2026-09-14**: Documented Dependabot's cooldown `include`/`exclude` lists.
