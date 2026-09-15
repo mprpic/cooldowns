@@ -22,4 +22,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --no-progress README.md
+          # npmjs.com answers CI runners with 403 regardless of user agent,
+          # so its links can only be checked by hand.
+          args: --no-progress --exclude 'npmjs\.com' README.md
