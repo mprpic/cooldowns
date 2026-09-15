@@ -1,22 +1,30 @@
 # Dependency Cooldowns
 
-In March 2026 alone, three widely-used packages were compromised after attackers gained access to tokens used to publish
-those packages to their respective package registries.
-[LiteLLM](https://www.herodevs.com/blog-posts/the-litellm-supply-chain-attack-what-happened-why-it-matters-and-what-to-do-next)
-had versions on PyPI that harvested cloud credentials, SSH keys, and
-Kubernetes configs for about two hours before removal.
-The [Telnyx Python SDK](https://socket.dev/blog/telnyx-python-sdk-compromised) shipped platform-specific backdoors
-triggered at import time, bypassing install-time detection entirely.
-And [axios](https://www.stepsecurity.io/blog/axios-compromised-on-npm-malicious-versions-drop-remote-access-trojan),
-with over 100 million weekly npm downloads, had versions that dropped a remote access trojan via an injected
-dependency, live for 2–3 hours before npm pulled them.
+Compromised packages are unfortunately a regular occurrence in today's world. If attackers manage to steal a publish
+token or take over a maintainer account, they can push a malicious version of a package to a package registry, and
+anyone who installs it during the next few hours may end up compromising their system. Some recent examples:
 
-Anyone who ran `pip install` or `npm install` while the malicious packages were available could have infected their
-system and potentially exposed sensitive data to the attackers. That's the inherent risk of always resolving to the
-latest version of a package at install time. Dependency cooldowns are a relatively simple fix to prevent this from
-happening: tell your package manager to ignore any version that hasn't existed for at least N days. Security
-researchers and automated scanners catch most compromised packages within hours or days of publication. A cooldown just
-makes sure you're not the one who installs it before they do.
+- **August 2026, npm:** the [ChainDrop worm](https://www.stepsecurity.io/blog/chaindrop-npm-worm) hijacked `keyv`
+  (about 150 million weekly downloads) and used publish tokens stolen from its first victims to spread to 444 packages
+  and over 2,200 malicious versions in a single morning. npm started unpublishing about an hour after the first poisoned
+  release, but the worm kept propagating for roughly four hours.
+- **August 2026, crates.io:**
+  [arrayref](https://www.stepsecurity.io/blog/arrayref-rust-crate-supply-chain-attack) (245 million downloads) got a
+  new version whose build script downloaded and ran malware at compile time, so `cargo build` alone was enough to get
+  infected. It was removed 86 minutes after publication.
+- **March 2026, PyPI and npm:**
+  [LiteLLM](https://www.herodevs.com/blog-posts/the-litellm-supply-chain-attack-what-happened-why-it-matters-and-what-to-do-next)
+  harvested cloud credentials and SSH keys for about two hours, the
+  [Telnyx Python SDK](https://socket.dev/blog/telnyx-python-sdk-compromised) shipped backdoors triggered at import
+  time, and [axios](https://www.stepsecurity.io/blog/axios-compromised-on-npm-malicious-versions-drop-remote-access-trojan)
+  dropped a remote access trojan via an injected dependency, live for 2–3 hours before npm pulled it.
+
+Anyone who ran `pip install`, `npm install`, or `cargo build` while the malicious packages were available could have
+infected their system and potentially exposed sensitive data to the attackers. That's the inherent risk of always
+resolving to the latest version of a package at install time. Dependency cooldowns are a relatively simple fix to
+prevent this from happening: tell your package manager to ignore any version that hasn't existed for at least N days.
+Security researchers and automated scanners catch most compromised packages within hours or days of publication. A
+cooldown just makes sure you're not the one who installs it before they do.
 
 ## Does it actually work?
 
@@ -31,6 +39,15 @@ a few hours (first detected at 10:39 UTC, quarantined on PyPI at 13:38 UTC).
 That's roughly an 80-90% reduction in exposure for a simple config change (if the package manager of your choice
 supports the cooldown feature, see below). All native implementations enforce cooldowns on transitive dependencies too,
 not just the packages you directly install.
+
+Other major vendors also support this approach. GitHub also made a three-day cooldown the Dependabot default
+in July 2026, explaining that it gives
+[detection signals time to surface](https://github.blog/security/supply-chain-security/disrupting-supply-chain-attacks-on-npm-and-github-actions/)
+before a malicious release reaches your project. Palo Alto Networks' Unit 42
+[recommends blocking any version published within the last 24 to 72 hours](https://unit42.paloaltonetworks.com/monitoring-npm-supply-chain-attacks/),
+since most malicious packages are identified and removed within that window. And Semgrep
+[rolled out a one-week cooldown across its whole organization](https://semgrep.dev/blog/2026/rolling-out-dependency-cooldowns-org-wide/),
+reporting "a surprisingly large security benefit with very little developer friction".
 
 All examples below use a three-day cooldown. Pick whatever number you're comfortable with; even one day makes a real
 difference.
@@ -863,8 +880,10 @@ them (container images on GHCR, Quay, or ECR, for example). Set `"minimumRelease
 to raise such updates without an age check; Renovate then logs a warning for each one. Renovate 41 defaults to the
 fail-open behaviour, with `timestamp-required` available as an opt-in since 41.150.0.
 
-Dependabot also has a cooldown feature. Since July 2026 it applies a default three-day cooldown to version
-updates even without any configuration (security updates remain exempt). You can customize it in `dependabot.yml`:
+Dependabot also has a cooldown feature.
+[Since July 2026](https://github.blog/security/supply-chain-security/disrupting-supply-chain-attacks-on-npm-and-github-actions/)
+it applies a default three-day cooldown to version updates even without any configuration (security updates remain
+exempt). You can customize it in `dependabot.yml`:
 
 ```yaml
 version: 2
