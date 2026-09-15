@@ -15,12 +15,12 @@ jobs:
     env:
       UV_EXCLUDE_NEWER: "3 days"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: ShellCheck
         run: shellcheck cooldowns.sh
 
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
 
       - name: Markdown lint
         run: uv run --with mdlint mdlint check docs/index.md README.md
