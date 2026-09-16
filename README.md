@@ -137,7 +137,7 @@ in a separate command with the environment variable unset:
 env -u PIP_UPLOADED_PRIOR_TO pip install setuptools==78.1.1
 ```
 
-If you use the shell wrapper function from the [pip < 26.1](#pip--261) section, call `command pip` directly to bypass it.
+If you use the shell wrapper function from the [pip < 26.1](#pip-261) section, call `command pip` directly to bypass it.
 
 See [pip documentation](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-uploaded-prior-to) for more information
 about this configuration option.
