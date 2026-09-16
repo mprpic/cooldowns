@@ -2,9 +2,71 @@
     display: none;
 }
 
+/* Same gradient in both schemes, so pin the foreground to white. */
+.md-header {
+    background: linear-gradient(90deg, #3d0f35 0%, #b3651d 100%);
+    color: #fff;
+}
+
+/* Black-stroked SVG loaded as an <img>. */
+.md-header .md-logo img,
 [data-md-color-scheme="slate"] .md-logo img {
     filter: invert(1);
 }
+
+/* Zensical's slate background is near black; soften it. */
+[data-md-color-scheme="slate"] {
+    --md-default-bg-color: #232529;
+    --md-default-bg-color--light: #2325298a;
+    --md-default-bg-color--lighter: #23252942;
+    --md-default-bg-color--lightest: #23252912;
+    --md-code-bg-color: #2f3137;
+    --md-code-bg-color--light: #2f3137e6;
+    --md-code-bg-color--lighter: #2f31378a;
+    --md-footer-bg-color: #1a1b1ede;
+    --md-footer-bg-color--dark: #16171a;
+}
+
+/* Amber links glare on dark and fail contrast on white; accent is the hover
+   color. The body prefix outranks [data-md-color-primary=amber]. */
+body[data-md-color-scheme="slate"] {
+    --md-typeset-a-color: #d9a441;
+    --md-accent-fg-color: #f0d298;
+    --md-accent-fg-color--transparent: #f0d2981a;
+    --md-accent-bg-color: #000000de;
+}
+
+body[data-md-color-scheme="default"] {
+    --md-typeset-a-color: #9a6a12;
+    --md-accent-fg-color: #7a4a0c;
+    --md-accent-fg-color--transparent: #7a4a0c1a;
+    --md-accent-bg-color: #ffffff;
+}
+
+/* Title duplicates the header banner. Kept in the DOM for the outline and the
+   "Skip to content" target. */
+.md-content__inner > h1:first-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* Close the gap the hidden title leaves, and align content with the TOC. */
+.md-main__inner {
+    margin-top: 0.4rem;
+}
+
+.md-content__inner > h1:first-child + * {
+    margin-top: 0;
+}
+
+.md-sidebar--secondary {
+    padding-top: 0.9rem;
+}
+
 code {
     white-space-collapse: preserve;
 }
