@@ -1,22 +1,30 @@
 # Dependency Cooldowns
 
-In March 2026 alone, three widely-used packages were compromised after attackers gained access to tokens used to publish
-those packages to their respective package registries.
-[LiteLLM](https://www.herodevs.com/blog-posts/the-litellm-supply-chain-attack-what-happened-why-it-matters-and-what-to-do-next)
-had versions on PyPI that harvested cloud credentials, SSH keys, and
-Kubernetes configs for about two hours before removal.
-The [Telnyx Python SDK](https://socket.dev/blog/telnyx-python-sdk-compromised) shipped platform-specific backdoors
-triggered at import time, bypassing install-time detection entirely.
-And [axios](https://www.stepsecurity.io/blog/axios-compromised-on-npm-malicious-versions-drop-remote-access-trojan),
-with over 100 million weekly npm downloads, had versions that dropped a remote access trojan via an injected
-dependency, live for 2–3 hours before npm pulled them.
+Compromised packages are unfortunately a regular occurrence in today's world. If attackers manage to steal a publish
+token or take over a maintainer account, they can push a malicious version of a package to a package registry, and
+anyone who installs it during the next few hours may end up compromising their system. Some recent examples:
 
-Anyone who ran `pip install` or `npm install` while the malicious packages were available could have infected their
-system and potentially exposed sensitive data to the attackers. That's the inherent risk of always resolving to the
-latest version of a package at install time. Dependency cooldowns are a relatively simple fix to prevent this from
-happening: tell your package manager to ignore any version that hasn't existed for at least N days. Security
-researchers and automated scanners catch most compromised packages within hours or days of publication. A cooldown just
-makes sure you're not the one who installs it before they do.
+- **August 2026, npm:** the [ChainDrop worm](https://www.stepsecurity.io/blog/chaindrop-npm-worm) hijacked `keyv`
+  (about 150 million weekly downloads) and used publish tokens stolen from its first victims to spread to 444 packages
+  and over 2,200 malicious versions in a single morning. npm started unpublishing about an hour after the first poisoned
+  release, but the worm kept propagating for roughly four hours.
+- **August 2026, crates.io:**
+  [arrayref](https://www.stepsecurity.io/blog/arrayref-rust-crate-supply-chain-attack) (245 million downloads) got a
+  new version whose build script downloaded and ran malware at compile time, so `cargo build` alone was enough to get
+  infected. It was removed 86 minutes after publication.
+- **March 2026, PyPI and npm:**
+  [LiteLLM](https://www.herodevs.com/blog-posts/the-litellm-supply-chain-attack-what-happened-why-it-matters-and-what-to-do-next)
+  harvested cloud credentials and SSH keys for about two hours, the
+  [Telnyx Python SDK](https://socket.dev/blog/telnyx-python-sdk-compromised) shipped backdoors triggered at import
+  time, and [axios](https://www.stepsecurity.io/blog/axios-compromised-on-npm-malicious-versions-drop-remote-access-trojan)
+  dropped a remote access trojan via an injected dependency, live for 2–3 hours before npm pulled it.
+
+Anyone who ran `pip install`, `npm install`, or `cargo build` while the malicious packages were available could have
+infected their system and potentially exposed sensitive data to the attackers. That's the inherent risk of always
+resolving to the latest version of a package at install time. Dependency cooldowns are a relatively simple fix to
+prevent this from happening: tell your package manager to ignore any version that hasn't existed for at least N days.
+Security researchers and automated scanners catch most compromised packages within hours or days of publication. A
+cooldown just makes sure you're not the one who installs it before they do.
 
 ## Does it actually work?
 
@@ -31,6 +39,15 @@ a few hours (first detected at 10:39 UTC, quarantined on PyPI at 13:38 UTC).
 That's roughly an 80-90% reduction in exposure for a simple config change (if the package manager of your choice
 supports the cooldown feature, see below). All native implementations enforce cooldowns on transitive dependencies too,
 not just the packages you directly install.
+
+Other major vendors also support this approach. GitHub also made a three-day cooldown the Dependabot default
+in July 2026, explaining that it gives
+[detection signals time to surface](https://github.blog/security/supply-chain-security/disrupting-supply-chain-attacks-on-npm-and-github-actions/)
+before a malicious release reaches your project. Palo Alto Networks' Unit 42
+[recommends blocking any version published within the last 24 to 72 hours](https://unit42.paloaltonetworks.com/monitoring-npm-supply-chain-attacks/),
+since most malicious packages are identified and removed within that window. And Semgrep
+[rolled out a one-week cooldown across its whole organization](https://semgrep.dev/blog/2026/rolling-out-dependency-cooldowns-org-wide/),
+reporting "a surprisingly large security benefit with very little developer friction".
 
 All examples below use a three-day cooldown. Pick whatever number you're comfortable with; even one day makes a real
 difference.
@@ -66,8 +83,10 @@ For project-level config in `pyproject.toml`:
 exclude-newer = "3 days"
 ```
 
-uv also supports per-package overrides via `exclude-newer-package`. To exempt a specific package from the cooldown
-(e.g. to pull an urgent security fix), set it to `false` in your `pyproject.toml` or `uv.toml`:
+uv also supports per-package overrides via `exclude-newer-package`. Each entry takes the same value types as
+`exclude-newer` (an RFC 3339 timestamp, a friendly duration, or an ISO 8601 duration) or `false`, which exempts the
+package from the cooldown entirely. To exempt a specific package (e.g. to pull an urgent security fix), set it to
+`false` in your `pyproject.toml` or `uv.toml`:
 
 ```toml
 [tool.uv]
@@ -75,7 +94,16 @@ exclude-newer = "3 days"
 exclude-newer-package = { setuptools = false }
 ```
 
-There is no CLI flag or environment variable for `exclude-newer-package`; it can only be set in a config file.
+The same override can be passed on the command line (once per package), which is the better choice for a one-off fix
+because nothing is left behind in a config file:
+
+```bash
+uv pip install --exclude-newer-package setuptools=false setuptools==78.1.1
+```
+
+There is no environment variable equivalent. Note that a timestamp override (e.g. `django = "2026-08-05T00:00:00Z"`)
+is a fixed cutoff, not a rolling window: once the global cooldown has caught up, it keeps blocking every later release
+of that package. Remove overrides once the fix is installed.
 
 Refer to [uv documentation](https://docs.astral.sh/uv/reference/settings/#exclude-newer) for more information about this
 configuration setting.
@@ -276,10 +304,29 @@ pdm config strategy.exclude-newer 3d
 Add `--local` to scope it to the current project's `.pdm.toml` instead. The same value can also be passed per-command
 via `pdm lock --exclude-newer 3d`. There is no environment variable equivalent.
 
+PDM 2.29.1 added per-package overrides in the `[tool.pdm.resolution.exclude-newer-override]` table. An override
+accepts the same formats as `exclude-newer`, or `false` to exempt the package from the cooldown entirely:
+
+```toml
+[tool.pdm.resolution]
+exclude-newer = "3d"
+
+[tool.pdm.resolution.exclude-newer-override]
+setuptools = false
+```
+
+Overrides can also be passed per-command via `pdm lock --exclude-newer-override setuptools=false`. PDM fails closed:
+a distribution whose index entry lacks an `upload-time` field is treated as unavailable unless its override is
+`false`.
+
 ### conda
 
-The conda package manager does not have a native cooldown feature, but
-issue [#15759](https://github.com/conda/conda/issues/15759) proposed its implementation.
+The conda package manager does not have a native cooldown feature in any released version yet, but one is on the way.
+The tracking issue [#15759](https://github.com/conda/conda/issues/15759) covers the whole ecosystem, and the core
+`--exclude-newer` policy ([#15761](https://github.com/conda/conda/pull/15761)) was merged on 2026-08-21 for conda
+26.9.0. Solver backends (conda-libmamba-solver, conda-rattler-solver) and conda-build support are still in review.
+On the mamba side, [mamba 2.9.0](https://github.com/mamba-org/mamba/releases/tag/2.9.0) (2026-08-07) shipped the
+underlying `--exclude-newer` primitive in libmamba, but micromamba does not enforce it yet.
 
 ### pixi
 
@@ -317,8 +364,8 @@ trusted internal channels or urgent fixes.
 
 ### Private PyPI registries
 
-If the registry does not expose upload times for a release, `uv` and `pip` will fail closed and reject to install a package
-whose version would have been excluded, while `poetry` fails open and will allow that version to be installed.
+If the registry does not expose upload times for a release, `uv`, `pip`, and `pdm` will fail closed and reject to install
+a package whose version would have been excluded, while `poetry` fails open and will allow that version to be installed.
 
 Upload times are only supported by the JSON-version of the PyPI Simple API, so tools that only support the HTML format
 do not support upload times. For example, in JFrog Artifactory settings you have to enable the PyPI Simple JSON API,
@@ -344,7 +391,7 @@ min-release-age = 3 # days
 available before it will be considered for installation. In true JavaScript fashion, the other JS package managers chose
 completely different units of time.
 
-npm added `min-release-age-exclude` for per-package exemptions (available in npm 11.19.0+ and npm 12). The value
+npm added `min-release-age-exclude` for per-package exemptions in version 11.17.0. The value
 accepts package names or [minimatch](https://www.npmjs.com/package/minimatch) glob patterns. In your `.npmrc`:
 
 ```ini
@@ -381,7 +428,12 @@ minimumReleaseAgeExclude:
 - react
 ```
 
-See [pnpm documentation](https://pnpm.io/settings#minimumreleaseage) for more information.
+A couple of related settings are worth knowing about. Since pnpm 12.3.0, an explicitly configured
+`minimumReleaseAge` is strict by default: when no version of a dependency satisfies the cooldown, the install fails
+instead of silently falling back to an older version. And `minimumReleaseAgeIgnoreMissingTime` (default `true`) makes
+pnpm fail open for registries that don't return publish times. See the
+[pnpm documentation](https://pnpm.io/settings/dependency-resolution#minimumreleaseage) for these and other related
+settings.
 
 #### pnpm v10
 
@@ -468,27 +520,48 @@ To exempt specific packages from the cooldown, use the object form:
 }
 ```
 
-See [deno documentation](https://docs.deno.com/runtime/reference/cli/install/#options-minimum-dependency-age) for more
-information.
+Since Deno 2.8, `min-release-age` in an `.npmrc` file is honored too, which is convenient when the same `.npmrc` is
+shared between npm and Deno tooling. Unlike the Deno-native settings, the npm key only accepts a whole number of days.
+
+See [deno documentation](https://docs.deno.com/runtime/packages/supply_chain/) for more information.
+
+### npm-check-updates (JavaScript/Node.js)
+
+[npm-check-updates](https://github.com/raineorshine/npm-check-updates) (`ncu`) bumps the version ranges in
+`package.json` rather than installing packages, so it needs its own cooldown to avoid pointing a range at a
+freshly published version. It added a `--cooldown` option in version 18.2.0. The value is a number of days or, since
+19.4.0, a string with a unit (`7d`, `12h`, `30m`):
+
+```bash
+npx npm-check-updates --cooldown 3
+```
+
+Since 20.0.0, `ncu` picks up the cooldown from the active package manager's own configuration (`min-release-age` for
+npm, `minimumReleaseAge` for pnpm, `npmMinimalAgeGate` for Yarn), so a package manager cooldown covers it with no
+extra flags. Since 22.0.0, a package whose latest version is inside the cooldown window falls back to the newest
+version that passes it instead of being skipped. For per-package control, `cooldown` accepts a predicate function in
+`.ncurc.js` (19.1.0+). See the
+[cooldown documentation](https://github.com/raineorshine/npm-check-updates#cooldown) for details.
 
 ## Rust Ecosystem
 
 ### Cargo
 
-Cargo doesn't have native cooldown support on stable yet. Cargo 1.94 added `pubtime` fields to the crate index (the
-prerequisite), and an RFC ([#3923](https://github.com/rust-lang/rfcs/blob/master/text/3923-cargo-min-publish-age.md))
-for native cooldowns has been accepted. The implementation has landed on nightly as the unstable `-Zmin-publish-age`
-feature (available since nightly-2026-06-21); stabilization is tracked in
-[#17009](https://github.com/rust-lang/cargo/issues/17009).
+Cargo doesn't have native cooldown support on stable yet, but it is close. Cargo 1.94 added `pubtime` fields to the
+crate index (the prerequisite), an RFC
+([#3923](https://github.com/rust-lang/rfcs/blob/master/text/3923-cargo-min-publish-age.md)) for native cooldowns was
+accepted, and Cargo 1.98 shipped the implementation as the unstable `-Zmin-publish-age` feature. The stabilization
+PR ([#17335](https://github.com/rust-lang/cargo/pull/17335)) was merged on 2026-08-28 and is slated for Rust 1.100,
+expected on 2026-11-12.
 
-Until that is implemented, the third-party [`cargo-cooldown`](https://crates.io/crates/cargo-cooldown) crate can be used
-instead. Note that `cargo-cooldown` is a cargo subcommand, not a transparent wrapper. You must use
-`cargo cooldown <command>` instead of `cargo <command>` for cooldowns to take effect. Setting `COOLDOWN_MINUTES` alone
-does nothing; it is only read by the `cargo-cooldown` subcommand.
+Until then, the third-party [`cargo-cooldown`](https://crates.io/crates/cargo-cooldown) crate can be used instead.
+Note that `cargo-cooldown` is a cargo subcommand, not a transparent wrapper. You must use `cargo cooldown <command>`
+instead of `cargo <command>` for cooldowns to take effect. Since version 0.3.1 it uses the same configuration keys as
+the upcoming native feature (the older `COOLDOWN_MINUTES` variable is deprecated):
 
 ```bash
 cargo install cargo-cooldown
-export COOLDOWN_MINUTES=4320  # 3 days, in minutes
+export CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="3 days"
 cargo cooldown build
 ```
 
@@ -750,8 +823,11 @@ action you need. Dependabot and Renovate can also update GitHub Actions with the
 These language ecosystems currently offer no native cooldown support. There's
 an [open proposal](https://github.com/golang/go/issues/76485) for Go, but it hasn't
 been accepted. [NuGet](https://github.com/NuGet/Home/issues/14657),
-[Composer](https://github.com/composer/composer/issues/12633), [Julia's Pkg](https://github.com/JuliaLang/Pkg.jl/issues/4670) and
-[Dart's pub](https://github.com/dart-lang/pub/issues/4791) also have open feature requests.
+[Composer](https://github.com/composer/composer/issues/12633), 
+[Julia's Pkg](https://github.com/JuliaLang/Pkg.jl/issues/4670), and
+[Dart's pub](https://github.com/dart-lang/pub/issues/4791) also have open feature requests. Composer is the furthest
+along: an implementation ([#12692](https://github.com/composer/composer/pull/12692)) adding a `config.policy.cooldown`
+setting is under review for the 2.11 milestone.
 Swift Package Manager doesn't have
 native cooldowns either, and no open request exists requesting this feature as of today. Your best bet is
 locking your dependencies to exact versions, and configuring cooldowns in Dependabot or Renovate for automated updates
@@ -760,6 +836,16 @@ locking your dependencies to exact versions, and configuring cooldowns in Depend
 Maven/Gradle (Java) don't have native cooldowns either, but the third-party [Scala Steward](#scala-jvm-ecosystem) bot
 described above can apply cooldowns to Maven projects (though it's not heavily used outside of Scala; note that
 Scala Steward does not officially support Gradle).
+
+For all of these, the [security scanners](#security-scanners-and-pr-checks) and
+[registry-level proxies](#registry-level-proxies) described below can enforce a cooldown externally.
+
+Homebrew applies a one-day cooldown to npm and pip packages inside its own formula builds
+([#21919](https://github.com/Homebrew/brew/pull/21919), merged April 2026), but a user-facing setting was
+[declined](https://github.com/Homebrew/brew/issues/22659). The maintainers argue that human review of every formula
+update already provides the delay that language-ecosystem cooldowns try to recreate, and that a blanket cooldown would
+slow down critical fixes for everyone. See
+[Homebrew's supply chain security page](https://docs.brew.sh/Homebrew-Security-and-Supply-Chain) for the reasoning.
 
 One related note: the community-run [gem.coop package index](https://gem.coop), an alternative to RubyGems, is
 beta-testing a 48-hour delay on newly published gems at the registry level.
@@ -787,8 +873,18 @@ To configure a cooldown of three days in your `renovate.json` file, use:
 }
 ```
 
-Dependabot also has a cooldown feature. Since July 2026 it applies a default three-day cooldown to version
-updates even without any configuration (security updates remain exempt). You can customize it in `dependabot.yml`:
+Renovate can only age a release that has a timestamp. Since Renovate 42,
+[`minimumReleaseAgeBehaviour`](https://docs.renovatebot.com/configuration-options/#minimumreleaseagebehaviour) defaults
+to `timestamp-required`: a release without a timestamp is treated as not yet old enough, and its update is held back
+indefinitely. This matters behind artifact proxies that strip release timestamps and for registries that never return
+them (container images on GHCR, Quay, or ECR, for example). Set `"minimumReleaseAgeBehaviour": "timestamp-optional"`
+to raise such updates without an age check; Renovate then logs a warning for each one. Renovate 41 defaults to the
+fail-open behaviour, with `timestamp-required` available as an opt-in since 41.150.0.
+
+Dependabot also has a cooldown feature.
+[Since July 2026](https://github.blog/security/supply-chain-security/disrupting-supply-chain-attacks-on-npm-and-github-actions/)
+it applies a default three-day cooldown to version updates even without any configuration (security updates remain
+exempt). You can customize it in `dependabot.yml`:
 
 ```yaml
 version: 2
@@ -802,9 +898,30 @@ updates:
       semver-major-days: 7
       semver-minor-days: 3
       semver-patch-days: 3
+      exclude:
+        - internal-*
 ```
 
+The optional `include` and `exclude` lists (up to 150 entries each, `*` wildcards supported) restrict which
+dependencies the cooldown applies to. `exclude` always wins over `include`, so a dependency listed in both is updated
+immediately. See the
+[Dependabot options reference](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#cooldown-)
+for details.
+
 Both Renovate and Dependabot exempt security updates from cooldowns, so critical CVE fixes still get PRs immediately.
+
+## Security scanners and PR checks
+
+Some security products enforce a cooldown at review time rather than at install time. That makes them a second line
+of defense in CI, and the only option for ecosystems without a native setting.
+
+- [Socket](https://docs.socket.dev/docs/cool-down-policy) raises a `recentlyPublished` alert for any package version
+  whose publish date falls inside a configurable window. The "Recently Published Alert Threshold" (0 to 365 days,
+  default 0, meaning off) is set once under Settings → Alerts → Scans and applies org-wide to every ecosystem Socket
+  scans: npm, PyPI, Maven, Cargo, RubyGems, NuGet, Go, Conda, and OpenVSX.
+- [StepSecurity](https://docs.stepsecurity.io/github/github-checks/configuration) offers a "Package Cooldown" GitHub
+  check that fails a pull request introducing or updating a dependency published within the last N days (default 2).
+  It covers npm, PyPI, Maven, and NuGet, and the window is configured per organization or repository.
 
 ## Registry-level proxies
 
@@ -813,6 +930,21 @@ enforce cooldowns at the registry level, overriding any project or CI-specific c
 newly published versions in quarantine for a configurable period before making them available for download. This works
 across ecosystems (npm, PyPI, Maven, and others) and ensures that even tools without native cooldown support benefit
 from a delay.
+
+[Cloudsmith](https://docs.cloudsmith.com/supply-chain-security/epm/cooldown-policy) takes a different approach from
+quarantine: its cooldown policy filters at the index level, hiding versions younger than `within_past_days` from the
+package index entirely, so package managers resolve to an older version instead of failing a download. Policies are
+written in Rego, scoped with `included_repositories` and `excluded_repositories`, and cover Cargo, Conda, Docker, Go,
+Maven, npm, NuGet, and Python.
+
+AWS CodeArtifact has no cooldown setting, but AWS
+[documents a CI pattern](https://docs.aws.amazon.com/codeartifact/latest/ug/package-version-age-gating.html) for
+gating on version age. CodeArtifact preserves the upstream publish timestamp when it caches a package (the npm
+packument `time` field, the Maven `Last-Modified` header, NuGet's `catalogEntry.published`, the crates.io V1 API
+`created_at`, and PyPI's `upload-time`), so a pipeline step can read it and fail the build for anything younger than
+the cutoff. Because the npm and PyPI timestamps come through in their standard formats, pnpm, Yarn, Renovate, and uv
+apply their own cooldowns through CodeArtifact without changes. Do not gate on the `publishedTime` field returned by
+`describe-package-version`: it reflects ingestion time and silently falls back to the record's last-updated time.
 
 For self-hosted npm setups, the open-source [Verdaccio](https://verdaccio.org/) registry proxy provides the same via
 its bundled `@verdaccio/package-filter` plugin: set `minAgeDays` to hide any version published less than N days ago
@@ -959,11 +1091,12 @@ RUN cooldowns.sh check
 | poetry          | Relative durations                         | `solver.min-release-age=3` in `pyproject.toml`                    |
 | PDM             | Relative durations (2.26.9+)               | `exclude-newer = "3d"` in `pyproject.toml`                        |
 | pixi            | Relative durations (0.67.0+)               | `exclude-newer = "3d"` in `pixi.toml`                             |
-| npm             | Relative durations; exclusions (11.19+)    | `min-release-age=3` in `.npmrc`                                   |
+| npm             | Relative durations; exclusions (11.17+)    | `min-release-age=3` in `.npmrc`                                   |
 | pnpm            | Relative durations (1-day default in v11+) | `minimumReleaseAge: 4320` in `pnpm-workspace.yaml`                |
 | Yarn            | Relative durations (1-day default, 4.15+)  | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
 | Bun             | Relative durations                         | `minimumReleaseAge = 259200` in `bunfig.toml`                     |
 | Deno            | Relative durations (24h default in 2.9+)   | `minimumDependencyAge: "P3D"` in `deno.json`                      |
+| npm-check-updates | Relative durations (18.2.0+)             | `ncu --cooldown 3`; reads npm/pnpm/Yarn cooldown config (20.0.0+) |
 | Cargo           | Unstable on nightly; third-party           | `cargo cooldown <cmd>` via `cargo-cooldown` crate                 |
 | Bundler         | Relative durations (4.0.13+)               | `bundle config set cooldown 3` / `--cooldown 3`                   |
 | Hex             | Relative durations (2.5.0+)                | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
@@ -985,15 +1118,17 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | Package Manager | Per-package bypass | How to bypass                                                                                       |
 | --------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
 | pip             | No                 | Unset env var or override on CLI; see [pip section](#pip)                                           |
-| uv              | Yes                | `exclude-newer-package = { pkg = false }` in config file                                            |
+| uv              | Yes                | `exclude-newer-package = { pkg = false }` in config or `--exclude-newer-package pkg=false`          |
 | pipenv          | No                 | Remove `cool-down-period` from `Pipfile` or install directly with pip                               |
 | poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                                                 |
+| PDM             | Yes (2.29.1+)      | `[tool.pdm.resolution.exclude-newer-override]` table, set to `false`                                |
 | pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`                                     |
-| npm             | Yes (npm 12+)      | `min-release-age-exclude[]` in `.npmrc` (globs supported)                                           |
+| npm             | Yes (11.17+)       | `min-release-age-exclude[]` in `.npmrc` (globs supported)                                           |
 | pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)                                   |
 | Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                                                      |
 | Bun             | Yes                | `minimumReleaseAgeExcludes` list in `bunfig.toml`                                                   |
 | Deno            | Yes                | Object form with `exclude` array in `deno.json`                                                     |
+| npm-check-updates | Yes              | `cooldown` predicate function in `.ncurc.js` (19.1.0+)                                              |
 | Cargo           | Yes                | `[[allow.package]]` / `[[allow.exact]]` in `cooldown.toml`                                          |
 | Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                                     |
 | Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
@@ -1003,7 +1138,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 
 **Important:** always revert bypass exemptions after installing the fix. A forgotten entry in a config file
 permanently weakens your cooldown protection for that package. For tools with per-package support, add the
-exemption, install the fix, then remove it. For tools without per-package support (pip, npm 11), temporarily override
+exemption, install the fix, then remove it. For tools without per-package support (pip, npm < 11.17), temporarily override
 the cooldown for the entire install command and pin the version you need.
 Both [Renovate](https://docs.renovatebot.com/) and [Dependabot](https://docs.github.com/en/code-security/dependabot)
 exempt security updates from cooldowns by default, so CVE fix PRs still arrive immediately regardless of your cooldown
@@ -1075,6 +1210,13 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 
 ## Changelog
 
+<details markdown>
+<summary>Show all entries</summary>
+
+- **2026-09-14**: Added AWS CodeArtifact's age-gating pattern and a note on Homebrew's internal cooldown.
+- **2026-09-14**: Added Socket and StepSecurity PR-time cooldown checks and Cloudsmith's index-level cooldown policy.
+- **2026-09-14**: Added npm-check-updates `--cooldown` documentation.
+- **2026-09-14**: Documented Dependabot's cooldown `include`/`exclude` lists.
 - **2026-08-03**: Noted Dart/pub's open cooldown proposal.
 - **2026-08-03**: Added Verdaccio to the registry-level proxy cooldown options.
 - **2026-08-03**: Added PDM cooldown documentation.
@@ -1095,3 +1237,5 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 - **2026-05-26**: Added pixi documentation.
 - **2026-05-21**: Added poetry configuration documentation and a note on private PyPI registries.
 - **2026-05-08**: Documented pip 26.1+ duration format support.
+
+</details>

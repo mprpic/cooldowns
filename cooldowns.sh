@@ -13,6 +13,7 @@
 #   cooldowns.sh check
 #
 # Changelog:
+#   2026-09-14  Switched cargo to CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE (COOLDOWN_MINUTES is deprecated since cargo-cooldown 0.3.1)
 #   2026-08-03  Added pdm support (strategy.exclude-newer via pdm config, pdm >= 2.27.0)
 #   2026-06-04  Added bundler support (BUNDLE_COOLDOWN export, Bundler >= 4.0.13)
 #   2026-06-01  Added poetry support (solver.min-release-age, poetry >= 2.4.0)
@@ -34,7 +35,8 @@
 #   yarn   YARN_NPM_MINIMAL_AGE_GATE export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #   bun    minimumReleaseAge in ~/.bunfig.toml
 #   deno   Aliases in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
-#   cargo  COOLDOWN_MINUTES export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+#   cargo  CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
+#          (read by cargo-cooldown >= 0.3.1 and by Cargo >= 1.100 natively)
 #   bundler BUNDLE_COOLDOWN export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #          (requires Bundler >= 4.0.13)
 #
@@ -207,7 +209,7 @@ duration_for_tool() {
         bun)      echo $(( days * 24 * 60 * 60 )) ;;    # seconds
         deno)     echo "P${days}D" ;;                    # ISO 8601
         yarn)     echo $(( days * 24 * 60 )) ;;          # minutes
-        cargo)    echo $(( days * 24 * 60 )) ;;          # minutes
+        cargo)    echo "$days days" ;;                   # RFC 3923 duration
         bundler)  echo "$days" ;;                         # integer days
         *)        echo "$days" ;;
     esac
@@ -553,18 +555,18 @@ set_cargo() {
         echo "cargo: not installed, skipping"
         return
     fi
-    local minutes
-    minutes=$(duration_for_tool "$days" cargo)
+    local value
+    value=$(duration_for_tool "$days" cargo)
     ensure_profile_dir
 
     if ! find_in_profiles "cooldowns:cargo:start" &>/dev/null; then
-        if [[ -n "${COOLDOWN_MINUTES:-}" ]]; then
-            echo "cargo: COOLDOWN_MINUTES is already set to '$COOLDOWN_MINUTES', skipping"
+        if [[ -n "${CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE:-}" ]]; then
+            echo "cargo: CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE is already set to '$CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE', skipping"
             return
         fi
         local existing_file
-        if existing_file=$(find_in_profiles "COOLDOWN_MINUTES="); then
-            echo "cargo: COOLDOWN_MINUTES is already configured in $existing_file, skipping"
+        if existing_file=$(find_in_profiles "CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="); then
+            echo "cargo: CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE is already configured in $existing_file, skipping"
             return
         fi
     fi
@@ -573,12 +575,12 @@ set_cargo() {
 
     cat >> "$PROFILE_SCRIPT" << SHELL
 # cooldowns:cargo:start
-export COOLDOWN_MINUTES="$minutes"
+export CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="$value"
 # cooldowns:cargo:end
 SHELL
-    echo "cargo: set COOLDOWN_MINUTES=$minutes in $PROFILE_SCRIPT"
-    echo "  note: cargo has no native cooldown support. You must use 'cargo cooldown <command>' instead of 'cargo <command>'."
-    echo "  Install the crate with: cargo install cargo-cooldown"
+    echo "cargo: set CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE=\"$value\" in $PROFILE_SCRIPT"
+    echo "  note: Cargo < 1.100 has no native cooldown support. You must use 'cargo cooldown <command>' instead of 'cargo <command>'."
+    echo "  Install the crate with: cargo install cargo-cooldown (>= 0.3.1)"
 }
 
 set_bundler() {
@@ -925,17 +927,25 @@ check_cargo() {
         return
     fi
 
-    if [[ -n "${COOLDOWN_MINUTES:-}" ]]; then
-        record cargo $STATUS_OK "COOLDOWN_MINUTES=$COOLDOWN_MINUTES ($(minutes_to_days "$COOLDOWN_MINUTES")d)"
+    if [[ -n "${CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE:-}" ]]; then
+        record cargo $STATUS_OK "CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE=\"$CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE\""
         return
     fi
 
     local profile_file
     if profile_file=$(find_in_profiles "cooldowns:cargo:start") \
-       || profile_file=$(find_in_profiles "COOLDOWN_MINUTES="); then
+       || profile_file=$(find_in_profiles "CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="); then
         local val
-        val=$(extract_kv COOLDOWN_MINUTES "$profile_file" || echo "")
-        record cargo $STATUS_OK "COOLDOWN_MINUTES=$val ($(minutes_to_days "$val")d) in $profile_file (not yet sourced)"
+        val=$(extract_kv CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE "$profile_file" || echo "")
+        if [[ -n "$val" ]]; then
+            record cargo $STATUS_OK "CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE=\"$val\" in $profile_file (not yet sourced)"
+            return
+        fi
+    fi
+
+    # Configs written before 2026-09-14 used cargo-cooldown's deprecated variable
+    if [[ -n "${COOLDOWN_MINUTES:-}" ]] || find_in_profiles "COOLDOWN_MINUTES=" &>/dev/null; then
+        record cargo $STATUS_WARN "COOLDOWN_MINUTES is deprecated since cargo-cooldown 0.3.1; re-run 'cooldowns.sh set cargo <duration>'"
         return
     fi
 
@@ -975,7 +985,8 @@ tool_is_relevant() {
         npm)   [[ -f "${HOME}/.npmrc" ]] && grep -q "min-release-age" "${HOME}/.npmrc" 2>/dev/null && return 0 ;;
         pnpm)  command -v pnpm &>/dev/null && pnpm config get minimum-release-age 2>/dev/null | grep -qv "^undefined$" && return 0 ;;
         bun)   [[ -f "${HOME}/.bunfig.toml" ]] && return 0 ;;
-        cargo) [[ -n "${COOLDOWN_MINUTES:-}" ]] && return 0
+        cargo) [[ -n "${CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE:-}" || -n "${COOLDOWN_MINUTES:-}" ]] && return 0
+               find_in_profiles "CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE=" &>/dev/null && return 0
                find_in_profiles "COOLDOWN_MINUTES=" &>/dev/null && return 0 ;;
         yarn)  [[ -n "${YARN_NPM_MINIMAL_AGE_GATE:-}" ]] && return 0
                find_in_profiles "YARN_NPM_MINIMAL_AGE_GATE=" &>/dev/null && return 0 ;;
@@ -1062,7 +1073,7 @@ where configs are written (all user-wide; project-level configs are not modified
   bun    bunfig.toml key    ~/.bunfig.toml
   deno   shell aliases      /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
   cargo  env var export     /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
-                            (requires cargo-cooldown crate; use 'cargo cooldown <cmd>')
+                            (requires cargo-cooldown >= 0.3.1 or Cargo >= 1.100; use 'cargo cooldown <cmd>')
   bundler env var export    /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
                             (requires Bundler >= 4.0.13)
 
