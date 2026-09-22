@@ -387,6 +387,17 @@ trusted internal channels or urgent fixes.
 If the registry does not expose upload times for a release, `uv`, `pip`, and `pdm` will fail closed and reject to install
 a package whose version would have been excluded, while `poetry` fails open and will allow that version to be installed.
 
+Since uv 0.11.5, you can set `exclude-newer` per index to relax the cooldown for an internal registry, or set it to
+`false` to disable the cutoff for an index that doesn't expose upload times, while keeping it for PyPI. Per-package
+`exclude-newer-package` overrides still take precedence:
+
+```toml
+[[tool.uv.index]]
+name = "internal"
+url = "https://internal.example.com/simple"
+exclude-newer = false
+```
+
 Upload times are only supported by the JSON-version of the PyPI Simple API, so tools that only support the HTML format
 do not support upload times. For example, in JFrog Artifactory settings you have to enable the PyPI Simple JSON API,
 which is only available as of Artifactory 7.139.1 (SaaS, February 2026) or 7.146 (self-hosted, April 2026).
@@ -1236,6 +1247,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 <details markdown>
 <summary>Show all entries</summary>
 
+- **2026-09-22**: Documented uv's per-index `exclude-newer` setting for private registries.
 - **2026-09-22**: Added pipx cooldown documentation.
 - **2026-09-14**: Added AWS CodeArtifact's age-gating pattern and a note on Homebrew's internal cooldown.
 - **2026-09-14**: Added Socket and StepSecurity PR-time cooldown checks and Cloudsmith's index-level cooldown policy.
