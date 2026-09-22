@@ -13,6 +13,7 @@
 #   cooldowns.sh check
 #
 # Changelog:
+#   2026-09-22  Write bun's bunfig to $XDG_CONFIG_HOME/.bunfig.toml when XDG_CONFIG_HOME is set
 #   2026-09-14  Switched cargo to CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE (COOLDOWN_MINUTES is deprecated since cargo-cooldown 0.3.1)
 #   2026-08-03  Added pdm support (strategy.exclude-newer via pdm config, pdm >= 2.27.0)
 #   2026-06-04  Added bundler support (BUNDLE_COOLDOWN export, Bundler >= 4.0.13)
@@ -33,7 +34,7 @@
 #   npm    min-release-age in ~/.npmrc
 #   pnpm   minimum-release-age via pnpm config set --global (writes to pnpm's global rc)
 #   yarn   YARN_NPM_MINIMAL_AGE_GATE export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
-#   bun    minimumReleaseAge in ~/.bunfig.toml
+#   bun    minimumReleaseAge in ~/.bunfig.toml (or $XDG_CONFIG_HOME/.bunfig.toml)
 #   deno   Aliases in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #   cargo  CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #          (read by cargo-cooldown >= 0.3.1 and by Cargo >= 1.100 natively)
@@ -498,7 +499,8 @@ set_bun() {
     local days="$1"
     local duration
     duration=$(duration_for_tool "$days" bun)
-    local bunfig="${HOME}/.bunfig.toml"
+    # Bun reads $XDG_CONFIG_HOME/.bunfig.toml when XDG_CONFIG_HOME is set, with no fallback to $HOME.
+    local bunfig="${XDG_CONFIG_HOME:-$HOME}/.bunfig.toml"
 
     if [[ -f "$bunfig" ]] && grep -q "minimumReleaseAge" "$bunfig" 2>/dev/null; then
         local val
@@ -523,6 +525,7 @@ set_bun() {
             printf '\n[install]\nminimumReleaseAge = %s\n' "$duration" >> "$bunfig"
         fi
     else
+        mkdir -p "$(dirname "$bunfig")"
         printf '[install]\nminimumReleaseAge = %s\n' "$duration" > "$bunfig"
     fi
     echo "bun: set minimumReleaseAge = $duration in $bunfig"
@@ -899,7 +902,8 @@ check_yarn() {
 }
 
 check_bun() {
-    local bunfig="${HOME}/.bunfig.toml"
+    # Bun reads $XDG_CONFIG_HOME/.bunfig.toml when XDG_CONFIG_HOME is set, with no fallback to $HOME.
+    local bunfig="${XDG_CONFIG_HOME:-$HOME}/.bunfig.toml"
     if [[ -f "$bunfig" ]]; then
         local val
         if val=$(extract_kv minimumReleaseAge "$bunfig"); then

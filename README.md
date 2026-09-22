@@ -1030,7 +1030,7 @@ location depends on the tool:
 | npm     | `.npmrc` key                                     | `~/.npmrc`                                     |
 | pnpm    | `.npmrc` key                                     | `~/.npmrc`                                     |
 | yarn    | Env var export                                   | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
-| bun     | `bunfig.toml` key                                | `~/.bunfig.toml`                               |
+| bun     | `bunfig.toml` key                                | `~/.bunfig.toml` (or `$XDG_CONFIG_HOME/`)      |
 | deno    | Shell aliases                                    | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
 | cargo   | Env var export (requires `cargo-cooldown` crate) | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
 | bundler | Env var export (requires Bundler >= 4.0.13)      | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
