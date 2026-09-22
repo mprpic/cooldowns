@@ -840,8 +840,9 @@ Scala Steward does not officially support Gradle).
 For all of these, the [security scanners](#security-scanners-and-pr-checks) and
 [registry-level proxies](#registry-level-proxies) described below can enforce a cooldown externally.
 
-Homebrew applies a one-day cooldown to npm and pip packages inside its own formula builds
-([#21919](https://github.com/Homebrew/brew/pull/21919), merged April 2026), but a user-facing setting was
+Homebrew applies a one-day cooldown to npm, pip, and Bundler packages inside its own formula builds
+([#21919](https://github.com/Homebrew/brew/pull/21919), merged April 2026; Bundler added in
+[#22555](https://github.com/Homebrew/brew/pull/22555)), but a user-facing setting was
 [declined](https://github.com/Homebrew/brew/issues/22659). The maintainers argue that human review of every formula
 update already provides the delay that language-ecosystem cooldowns try to recreate, and that a blanket cooldown would
 slow down critical fixes for everyone. See
