@@ -624,7 +624,8 @@ three-day cooldown to a single command:
 bundle install --cooldown 3
 ```
 
-The `--cooldown` flag is supported by the `install`, `update`, `add`, and `outdated` commands.
+The `--cooldown` flag is supported by the `install`, `update`, `add`, and `outdated` commands, and since 4.0.18 also
+by `lock` and `cache`.
 
 To set it for the current project, execute:
 
