@@ -821,8 +821,8 @@ action you need. Dependabot and Renovate can also update GitHub Actions with the
 ## Other ecosystems
 
 These language ecosystems currently offer no native cooldown support. There's
-an [open proposal](https://github.com/golang/go/issues/76485) for Go, but it hasn't
-been accepted. [NuGet](https://github.com/NuGet/Home/issues/14657),
+a [proposal](https://github.com/golang/go/issues/76485) for Go, but the proposal review group
+placed it on hold in June 2026. [NuGet](https://github.com/NuGet/Home/issues/14657),
 [Composer](https://github.com/composer/composer/issues/12633),
 [Julia's Pkg](https://github.com/JuliaLang/Pkg.jl/issues/4670), and
 [Dart's pub](https://github.com/dart-lang/pub/issues/4791) also have open feature requests. Composer is the furthest
