@@ -948,7 +948,7 @@ apply their own cooldowns through CodeArtifact without changes. Do not gate on t
 
 For self-hosted npm setups, the open-source [Verdaccio](https://verdaccio.org/) registry proxy provides the same via
 its bundled `@verdaccio/package-filter` plugin: set `minAgeDays` to hide any version published less than N days ago
-(the plugin is disabled by default).
+(the plugin is enabled by default but filters nothing until rules like `minAgeDays` are configured).
 
 ## Container images
 
