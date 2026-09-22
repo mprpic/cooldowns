@@ -56,9 +56,9 @@ difference.
 
 ### uv
 
-[uv](https://docs.astral.sh/uv/) introduced the built-in cooldown feature in version 0.9.17. It uses relative durations
-natively and supports several timestamp and duration formats. For example, the following installation command of package
-`foo` will ignore any versions of this package that are newer than three days:
+[uv](https://docs.astral.sh/uv/) added support for relative durations to its `exclude-newer` setting in version 0.9.17.
+It supports several timestamp and duration formats. For example, the following installation command of package `foo`
+will ignore any versions of this package that are newer than three days:
 
 ```bash
 uv pip install --exclude-newer '3 days' foo
@@ -330,8 +330,8 @@ underlying `--exclude-newer` primitive in libmamba, but micromamba does not enfo
 
 ### pixi
 
-[pixi](https://pixi.prefix.dev/latest/) introduced a built-in cooldown feature in version
-[0.67.0](https://github.com/prefix-dev/pixi/releases/tag/v0.67.0). It uses relative durations natively and accepts
+[pixi](https://pixi.prefix.dev/latest/) added support for relative durations to its `exclude-newer` setting in version
+[0.67.0](https://github.com/prefix-dev/pixi/releases/tag/v0.67.0). It accepts
 [three formats](https://pixi.prefix.dev/v0.69.0/reference/pixi_manifest/#exclude-newer-optional) for `exclude-newer`:
 
 - an RFC 3339 timestamp (e.g. `2023-10-01T00:00:00Z`),
