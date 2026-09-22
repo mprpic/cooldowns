@@ -239,6 +239,26 @@ setting is accepted but has no filtering effect (see [Private PyPI registries](#
 There is no environment variable equivalent and no per-package bypass. To install a specific package without the
 cooldown, temporarily remove the setting from the Pipfile or install the package directly with pip.
 
+### pipx
+
+[pipx](https://pipx.pypa.io/) added a `--cooldown DAYS` option in version 1.16.0. It works on the `install`,
+`install-all`, `inject`, `upgrade`, `upgrade-all`, and `run` commands, and is translated for whichever backend pipx
+uses (`--uploaded-prior-to` for pip, `--exclude-newer` for uv, which needs uv 0.9.17 or newer):
+
+```bash
+pipx install --cooldown 3 httpie
+```
+
+Since 1.17.0, the `PIPX_COOLDOWN` environment variable sets a default for all of those commands:
+
+```bash
+export PIPX_COOLDOWN=3
+```
+
+An explicit `--cooldown` takes precedence over the environment variable, so `--cooldown 0` disables the cooldown for a
+single command. There is no per-package bypass. See the
+[pipx documentation](https://pipx.pypa.io/latest/how-to/dependency-cooldown.html) for more information.
+
 ### poetry
 
 poetry added the
@@ -1089,6 +1109,7 @@ RUN cooldowns.sh check
 | pip             | Relative durations (26.1+)                 | `PIP_UPLOADED_PRIOR_TO="P3D"` / `--uploaded-prior-to P3D`         |
 | uv              | Relative durations                         | `exclude-newer = "3 days"` in `uv.toml` / `pyproject.toml`        |
 | pipenv          | Relative durations (2026.6.2+)             | `cool-down-period = "3d"` in `Pipfile`                            |
+| pipx            | Relative durations (1.16.0+)               | `PIPX_COOLDOWN=3` / `--cooldown 3`                                |
 | poetry          | Relative durations                         | `solver.min-release-age=3` in `pyproject.toml`                    |
 | PDM             | Relative durations (2.26.9+)               | `exclude-newer = "3d"` in `pyproject.toml`                        |
 | pixi            | Relative durations (0.67.0+)               | `exclude-newer = "3d"` in `pixi.toml`                             |
@@ -1121,6 +1142,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | pip             | No                 | Unset env var or override on CLI; see [pip section](#pip)                                           |
 | uv              | Yes                | `exclude-newer-package = { pkg = false }` in config or `--exclude-newer-package pkg=false`          |
 | pipenv          | No                 | Remove `cool-down-period` from `Pipfile` or install directly with pip                               |
+| pipx            | Per-run only       | `--cooldown 0` disables for a single command                                                        |
 | poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                                                 |
 | PDM             | Yes (2.29.1+)      | `[tool.pdm.resolution.exclude-newer-override]` table, set to `false`                                |
 | pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`                                     |
@@ -1214,6 +1236,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 <details markdown>
 <summary>Show all entries</summary>
 
+- **2026-09-22**: Added pipx cooldown documentation.
 - **2026-09-14**: Added AWS CodeArtifact's age-gating pattern and a note on Homebrew's internal cooldown.
 - **2026-09-14**: Added Socket and StepSecurity PR-time cooldown checks and Cloudsmith's index-level cooldown policy.
 - **2026-09-14**: Added npm-check-updates `--cooldown` documentation.
