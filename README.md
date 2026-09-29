@@ -418,6 +418,15 @@ Or set the following in your project's `.npmrc`:
 min-release-age = 3 # days
 ```
 
+Or use the following environment variable:
+
+```bash
+export NPM_CONFIG_MIN_RELEASE_AGE=3 # days
+```
+
+npm gives environment variables precedence over both project and user `.npmrc` files, so this overrides any
+`min-release-age` value set in a project's `.npmrc`.
+
 `npm` chose to use a unit that represents the number of days that a release must be
 available before it will be considered for installation. In true JavaScript fashion, the other JS package managers chose
 completely different units of time.
