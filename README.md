@@ -857,9 +857,16 @@ number of days:
 npx actions-up --min-age 3
 ```
 
-There is no per-action exemption; to bypass the cooldown for an urgent fix, run with `--min-age 0` and select only the
-action you need. Dependabot and Renovate can also update GitHub Actions with the cooldown settings shown in
-[Dependency update bots](#dependency-update-bots). See the
+Since version 1.21.0, the `--min-age-exclude` flag skips the cooldown for actions matching a regex pattern, using the
+same syntax as `--exclude`. This is useful for trusted actions such as your own reusable workflows, or for pulling an
+urgent fix. Anchor the pattern so that look-alike owners do not match:
+
+```bash
+npx actions-up --min-age-exclude "^my-org/"
+```
+
+On older versions, run with `--min-age 0` and select only the action you need. Dependabot and Renovate can also
+update GitHub Actions with the cooldown settings shown in [Dependency update bots](#dependency-update-bots). See the
 [actions-up documentation](https://github.com/azat-io/actions-up#readme) for more information.
 
 ## Other ecosystems
@@ -1180,7 +1187,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                                     |
 | Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
 | Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`                                     |
-| actions-up      | Per-run only       | `--min-age 0` disables for run; select only the needed action                                       |
+| actions-up      | Yes (1.21.0+)      | `--min-age-exclude` regex pattern (e.g. `"^my-org/"`); `--min-age 0` disables for run               |
 | mise            | Yes                | Per-tool `minimum_release_age` or `minimum_release_age_excludes`; pinned versions auto-bypass       |
 
 **Important:** always revert bypass exemptions after installing the fix. A forgotten entry in a config file
