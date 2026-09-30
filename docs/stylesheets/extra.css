@@ -54,6 +54,18 @@ body[data-md-color-scheme="default"] {
     white-space: nowrap;
 }
 
+/* Site name and page title are identical, so don't swap them on scroll. */
+.md-header__topic + .md-header__topic {
+    display: none;
+}
+
+.md-header__title--active .md-header__topic {
+    z-index: 0;
+    pointer-events: auto;
+    opacity: 1;
+    transform: none;
+}
+
 /* Close the gap the hidden title leaves, and align content with the TOC. */
 .md-main__inner {
     margin-top: 0.4rem;
