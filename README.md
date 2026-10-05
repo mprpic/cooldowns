@@ -341,10 +341,39 @@ a distribution whose index entry lacks an `upload-time` field is treated as unav
 
 ### conda
 
-The conda package manager does not have a native cooldown feature in any released version yet, but one is on the way.
-The tracking issue [#15759](https://github.com/conda/conda/issues/15759) covers the whole ecosystem, and the core
-`--exclude-newer` policy ([#15761](https://github.com/conda/conda/pull/15761)) was merged on 2026-08-21 for conda
-26.9.0. Solver backends (conda-libmamba-solver, conda-rattler-solver) and conda-build support are still in review.
+[conda 26.9.0](https://github.com/conda/conda/releases/tag/26.9.0) added an `exclude_newer` setting and a matching
+`--exclude-newer` flag for `conda create`, `install`, and `update`. It accepts a compact duration (`7d`, `3d12h`,
+`1w`), an ISO 8601 duration (`P7D`), an RFC 3339 timestamp, a `YYYY-MM-DD` date, or a number of seconds.
+
+Only the classic solver supports the cutoff so far. With the default libmamba solver, or the bundled rattler solver,
+conda refuses to run and reports that the solver does not support `--exclude-newer`. Support for both is still in
+review ([conda-libmamba-solver#905](https://github.com/conda/conda-libmamba-solver/pull/905),
+[conda-rattler-solver#49](https://github.com/conda/conda-rattler-solver/pull/49)). Until then, switch to the classic
+solver in your `.condarc` to use a cooldown:
+
+```yaml
+solver: classic
+exclude_newer: 3d
+```
+
+The same can be done for a single command with `conda install --solver=classic --exclude-newer 3d <package>`.
+
+Per-package overrides go under `exclude_newer_package`, and per-channel cutoffs under `channel_settings`. Set a
+package or channel to `false` to exempt it from the cooldown entirely:
+
+```yaml
+exclude_newer_package:
+  openssl: false
+channel_settings:
+  - channel: my-internal-channel
+    exclude_newer: false
+```
+
+conda fails open: it uses the channel's `indexed_timestamp` for a package, falling back to its build timestamp, and
+records with neither remain installable. See the
+[settings docs](https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/settings.html) for more
+information.
+
 On the mamba side, [mamba 2.9.0](https://github.com/mamba-org/mamba/releases/tag/2.9.0) (2026-08-07) shipped the
 underlying `--exclude-newer` primitive in libmamba, but micromamba does not enforce it yet.
 
@@ -846,6 +875,20 @@ delay installing newly published extensions and versions; it was closed for the 
 auto-update delay above shipped, so first installs are still not gated. Until that changes, review changelogs before
 installing a brand-new extension, and pin extension versions where possible.
 
+### Cursor
+
+Unlike VS Code, [Cursor](https://cursor.com/docs/configuration/extensions) can delay both installs and updates of
+extensions until a marketplace version has been published for a minimum number of hours. Individual users can set
+it in their `settings.json`; for a three-day cooldown:
+
+```json
+"extensions.installCooldownHours": 72
+```
+
+Team owners and admins can enforce a cooldown for the whole team under Team settings → Security & automation →
+Marketplace Install Cooldown (hours). The default is `0`, which disables the cooldown. When a team sets a value above
+`0`, it overrides each user's `extensions.installCooldownHours`, so developers cannot opt back into instant updates.
+
 ## GitHub Actions
 
 GitHub Actions has no native cooldown feature, though actions referenced in workflows are dependencies like any other:
@@ -1153,6 +1196,7 @@ RUN cooldowns.sh check
 | poetry          | Relative durations                         | `solver.min-release-age=3` in `pyproject.toml`                    |
 | PDM             | Relative durations (2.26.9+)               | `exclude-newer = "3d"` in `pyproject.toml`                        |
 | pixi            | Relative durations (0.67.0+)               | `exclude-newer = "3d"` in `pixi.toml`                             |
+| conda           | Relative durations (26.9.0+, classic solver) | `exclude_newer: 3d` in `.condarc`                               |
 | npm             | Relative durations; exclusions (11.17+)    | `min-release-age=3` in `.npmrc`                                   |
 | pnpm            | Relative durations (1-day default in v11+) | `minimumReleaseAge: 4320` in `pnpm-workspace.yaml`                |
 | Yarn            | Relative durations (1-day default, 4.15+)  | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
@@ -1165,7 +1209,8 @@ RUN cooldowns.sh check
 | Scala Steward   | Relative durations (0.38.0+)               | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
 | GitHub Actions  | Third-party only (1-day default)           | `npx actions-up --min-age 3` via `actions-up`                     |
 | Mise            | Relative durations                         | `settings.minimum_release_age = "3d"` in `mise.toml`              |
-| VS Code         | Not available                              | Pin dependencies and review updates manually                      |
+| VS Code         | Update delay only (1.125+)                 | `"extensions.autoUpdateDelay": 72` in `settings.json`             |
+| Cursor          | Install and update delay                   | `"extensions.installCooldownHours": 72` in `settings.json`        |
 | Go              | Not available                              | Dependabot/Renovate only                                          |
 | Maven/Gradle    | Not available                              | Dependabot/Renovate only                                          |
 | NuGet           | Not available                              | Dependabot/Renovate only                                          |
@@ -1186,6 +1231,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                                                 |
 | PDM             | Yes (2.29.1+)      | `[tool.pdm.resolution.exclude-newer-override]` table, set to `false`                                |
 | pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`                                     |
+| conda           | Yes                | `exclude_newer_package` map in `.condarc`, set to `false`                                           |
 | npm             | Yes (11.17+)       | `min-release-age-exclude[]` in `.npmrc` (globs supported)                                           |
 | pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)                                   |
 | Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                                                      |
@@ -1276,6 +1322,8 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 <details markdown>
 <summary>Show all entries</summary>
 
+- **2026-10-05**: Added Cursor extension cooldown documentation.
+- **2026-10-05**: Documented conda's `exclude_newer` setting (conda 26.9.0).
 - **2026-09-22**: Documented the `gem` command's `--cooldown` option (RubyGems 4.1.0).
 - **2026-09-22**: Documented uv's per-index `exclude-newer` setting for private registries.
 - **2026-09-22**: Added pipx cooldown documentation.
