@@ -1026,6 +1026,11 @@ of defense in CI, and the only option for ecosystems without a native setting.
 - [StepSecurity](https://docs.stepsecurity.io/github/github-checks/configuration) offers a "Package Cooldown" GitHub
   check that fails a pull request introducing or updating a dependency published within the last N days (default 2).
   It covers npm, PyPI, Maven, and NuGet, and the window is configured per organization or repository.
+- [unripe](https://github.com/TexWoW/unripe) is an open source command line tool, GitHub Action and pre-commit hook
+  that fails a build when any version in a lockfile was published within a set time (3 days by default). It reads
+  npm, pnpm, Yarn, Bun, uv, Poetry, Pipenv, pip requirements, Cargo, Go, Composer and Bundler lockfiles, can check
+  only the versions a pull request adds, and counts a version whose publish time it can't find as a failure. For Go,
+  it dates versions by when the checksum database first saw them, since the module proxy only reports commit times.
 
 ## Registry-level proxies
 
