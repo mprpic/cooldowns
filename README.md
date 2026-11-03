@@ -1027,6 +1027,17 @@ of defense in CI, and the only option for ecosystems without a native setting.
   check that fails a pull request introducing or updating a dependency published within the last N days (default 2).
   It covers npm, PyPI, Maven, and NuGet, and the window is configured per organization or repository.
 
+## Editor integrations
+
+- [Cooldown Lens](https://github.com/jonirafael/cooldown-lens)
+  ([VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=jonirafael.cooldown-lens)) is a VS Code
+  extension that shows the release age of every dependency in `package.json` and warns when the installed or resolved
+  version is still inside the cooldown. It reads the threshold from the project's own configuration (`min-release-age`
+  in `.npmrc`, `minimumReleaseAge` in `pnpm-workspace.yaml` or `bunfig.toml`, `npmMinimalAgeGate` in `.yarnrc.yml`)
+  and their exclude lists, falling back to a configurable default, and offers a quick fix to the newest version that
+  passes the cooldown. It does not enforce anything at install time; configure your package manager as described
+  above.
+
 ## Registry-level proxies
 
 Organizations that run a caching proxy such as JFrog Artifactory or Sonatype Nexus in front of public registries can
@@ -1322,6 +1333,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 <details markdown>
 <summary>Show all entries</summary>
 
+- **2026-10-19**: Added an editor integrations section (Cooldown Lens for VS Code).
 - **2026-10-05**: Added Cursor extension cooldown documentation.
 - **2026-10-05**: Documented conda's `exclude_newer` setting (conda 26.9.0).
 - **2026-09-22**: Documented the `gem` command's `--cooldown` option (RubyGems 4.1.0).
