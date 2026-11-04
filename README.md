@@ -374,8 +374,26 @@ records with neither remain installable. See the
 [settings docs](https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/settings.html) for more
 information.
 
-On the mamba side, [mamba 2.9.0](https://github.com/mamba-org/mamba/releases/tag/2.9.0) (2026-08-07) shipped the
-underlying `--exclude-newer` primitive in libmamba, but micromamba does not enforce it yet.
+#### micromamba
+
+[micromamba 2.10.0](https://github.com/mamba-org/mamba/releases/tag/2.10.0) (2026-10-23) enforces the same cutoff for
+`micromamba create`, `install`, and `update`. It uses the same `exclude_newer` and `exclude_newer_package` keys,
+accepts compact durations (`7d`), ISO 8601 durations (`P7D`), and dates (`2026-10-20`), and reads the keys from either
+`.mambarc` or `.condarc`:
+
+```yaml
+exclude_newer: 3d
+exclude_newer_package:
+  openssl: false
+```
+
+The same setting can be written with `micromamba config set exclude_newer 3d`, or exported as `MAMBA_EXCLUDE_NEWER="3d"`
+(`CONDA_EXCLUDE_NEWER` also works). For a single command, pass the flags directly:
+
+```bash
+micromamba install --exclude-newer 3d <package>
+micromamba install --exclude-newer 3d --exclude-newer-package '{openssl: false}' openssl
+```
 
 ### pixi
 
@@ -1198,6 +1216,7 @@ RUN cooldowns.sh check
 | PDM             | Relative durations (2.26.9+)               | `exclude-newer = "3d"` in `pyproject.toml`                        |
 | pixi            | Relative durations (0.67.0+)               | `exclude-newer = "3d"` in `pixi.toml`                             |
 | conda           | Relative durations (26.9.0+, classic solver) | `exclude_newer: 3d` in `.condarc`                               |
+| micromamba      | Relative durations (2.10.0+)               | `exclude_newer: 3d` in `.mambarc`                                 |
 | npm             | Relative durations; exclusions (11.17+)    | `min-release-age=3` in `.npmrc`                                   |
 | pnpm            | Relative durations (1-day default in v11+) | `minimumReleaseAge: 4320` in `pnpm-workspace.yaml`                |
 | Yarn            | Relative durations (1-day default, 4.15+)  | `npmMinimalAgeGate: "3d"` in `.yarnrc.yml`                        |
@@ -1233,6 +1252,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | PDM             | Yes (2.29.1+)      | `[tool.pdm.resolution.exclude-newer-override]` table, set to `false`                                |
 | pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`                                     |
 | conda           | Yes                | `exclude_newer_package` map in `.condarc`, set to `false`                                           |
+| micromamba      | Yes                | `exclude_newer_package` map set to `false`, or `--exclude-newer-package '{pkg: false}'`             |
 | npm             | Yes (11.17+)       | `min-release-age-exclude[]` in `.npmrc` (globs supported)                                           |
 | pnpm            | Yes                | `minimumReleaseAgeExclude` list (supports globs and version pins)                                   |
 | Yarn            | Yes                | `npmPreapprovedPackages` list (supports globs)                                                      |
@@ -1323,6 +1343,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 <details markdown>
 <summary>Show all entries</summary>
 
+- **2026-11-04**: Documented micromamba's `exclude_newer` setting (mamba 2.10.0).
 - **2026-10-05**: Added Cursor extension cooldown documentation.
 - **2026-10-05**: Documented conda's `exclude_newer` setting (conda 26.9.0).
 - **2026-09-22**: Documented the `gem` command's `--cooldown` option (RubyGems 4.1.0).
