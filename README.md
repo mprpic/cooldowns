@@ -861,8 +861,9 @@ backend as fallback, use `mise registry | grep -v '  npm:' | grep ' npm:'`.
 VS Code can delay automatic extension updates with the `extensions.autoUpdateDelay` setting, introduced in version
 1.125. Version 1.123 first shipped a fixed two-hour delay; 1.125 made it configurable. The value is the delay in
 hours: VS Code will not auto-update an installed extension until that many hours have
-passed since the new version was published to the Marketplace. The default is `2` hours, and setting it to `0` updates
-extensions as soon as new versions are available. For a three-day cooldown, set it to `72` in your `settings.json`:
+passed since the new version was published to the Marketplace. The default is `12` hours (it was `2` hours before
+version 1.134), and setting it to `0` updates extensions as soon as new versions are available. For a three-day
+cooldown, set it to `72` in your `settings.json`:
 
 ```json
 "extensions.autoUpdateDelay": 72
