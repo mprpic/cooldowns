@@ -830,6 +830,68 @@ themselves be compromised. See the
 [Scala Steward repo-specific configuration docs](https://github.com/scala-steward-org/scala-steward/blob/main/docs/repo-specific-configuration.md)
 for more information.
 
+## PHP Ecosystem
+
+### Composer
+
+[Composer](https://getcomposer.org/) added a cooldown policy in version
+[2.11.0](https://getcomposer.org/changelog/2.11.0), implemented in
+[pull request #12692](https://github.com/composer/composer/pull/12692). The `policy.cooldown.period` config key accepts
+a duration string in the form `"<number> <unit>"` (with a unit of `second`, `minute`, `hour`, `day`, or `week`, e.g.
+`"3 days"` or `"1 week"`) or an integer number of seconds. For project-level configuration in `composer.json`:
+
+```json
+{
+    "config": {
+        "policy": {
+            "cooldown": {
+                "period": "3 days"
+            }
+        }
+    }
+}
+```
+
+To set a global three-day cooldown (written to Composer's global `config.json`):
+
+```bash
+composer config -g policy.cooldown.period "3 days"
+```
+
+Or as an environment variable, which overrides the configured period:
+
+```bash
+export COMPOSER_POLICY_COOLDOWN_PERIOD="3 days"
+```
+
+The cooldown applies when Composer resolves dependencies (`composer update`, `require`, `remove`, and
+`create-project`). Packages listed under `ignore` bypass the cooldown, and names support wildcards:
+
+```json
+{
+    "config": {
+        "policy": {
+            "cooldown": {
+                "period": "3 days",
+                "ignore": {
+                    "mycompany/*": "We trust the code in our own packages",
+                    "symfony/security-bundle": "Security fixes need to be applied immediately"
+                }
+            }
+        }
+    }
+}
+```
+
+To bypass the cooldown for a single run, pass `--no-cooldown` (e.g. `composer require --no-cooldown vendor/pkg`) or
+set `COMPOSER_POLICY_COOLDOWN_PERIOD=0`.
+
+The cooldown is measured from the `published-time` that Packagist.org reports for each version. A Composer repository
+that does not provide `published-time` makes the command fail until you set `require-published-time` to `false` on that
+repository, in which case Composer falls back to the author-supplied `time` field in each package's `composer.json`
+(VCS, path, and artifact repositories always use that fallback). Versions with no date at all are let through rather
+than blocked. See the [config documentation](https://getcomposer.org/doc/06-config.md#cooldown) for more information.
+
 ## Tool Managers
 
 ### mise
@@ -945,11 +1007,8 @@ update GitHub Actions with the cooldown settings shown in [Dependency update bot
 These language ecosystems currently offer no native cooldown support. There's
 a [proposal](https://github.com/golang/go/issues/76485) for Go, but the proposal review group
 placed it on hold in June 2026. [NuGet](https://github.com/NuGet/Home/issues/14657),
-[Composer](https://github.com/composer/composer/issues/12633),
 [Julia's Pkg](https://github.com/JuliaLang/Pkg.jl/issues/4670), and
-[Dart's pub](https://github.com/dart-lang/pub/issues/4791) also have open feature requests. Composer is the furthest
-along: an implementation ([#12692](https://github.com/composer/composer/pull/12692)) adding a `config.policy.cooldown`
-setting is under review for the 2.11 milestone.
+[Dart's pub](https://github.com/dart-lang/pub/issues/4791) also have open feature requests.
 Swift Package Manager doesn't have
 native cooldowns either, and no open request exists requesting this feature as of today. Your best bet is
 locking your dependencies to exact versions, and configuring cooldowns in Dependabot or Renovate for automated updates
@@ -1227,6 +1286,7 @@ RUN cooldowns.sh check
 | Bundler         | Relative durations (4.0.13+)               | `bundle config set cooldown 3` / `--cooldown 3`                   |
 | Hex             | Relative durations (2.5.0+)                | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
 | Scala Steward   | Relative durations (0.38.0+)               | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
+| Composer        | Relative durations (2.11.0+)               | `policy.cooldown.period = "3 days"` in `composer.json`            |
 | GitHub Actions  | Third-party only (1-day default)           | `npx actions-up --min-age 3` via `actions-up`                     |
 | Mise            | Relative durations                         | `settings.minimum_release_age = "3d"` in `mise.toml`              |
 | VS Code         | Update delay only (1.125+)                 | `"extensions.autoUpdateDelay": 72` in `settings.json`             |
@@ -1234,7 +1294,6 @@ RUN cooldowns.sh check
 | Go              | Not available                              | Dependabot/Renovate only                                          |
 | Maven/Gradle    | Not available                              | Dependabot/Renovate only                                          |
 | NuGet           | Not available                              | Dependabot/Renovate only                                          |
-| Composer        | Not available                              | Dependabot/Renovate only                                          |
 
 ## Bypassing cooldowns
 
@@ -1263,6 +1322,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                                     |
 | Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
 | Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`                                     |
+| Composer        | Yes                | `policy.cooldown.ignore` list (supports wildcards); `--no-cooldown` disables for run                |
 | actions-up      | Yes (1.21.0+)      | `--min-age-exclude` regex pattern (e.g. `"^my-org/"`); `--min-age 0` disables for run               |
 | mise            | Yes                | Per-tool `minimum_release_age` or `minimum_release_age_excludes`; pinned versions auto-bypass       |
 
@@ -1343,6 +1403,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 <details markdown>
 <summary>Show all entries</summary>
 
+- **2026-11-04**: Added Composer (PHP) cooldown documentation.
 - **2026-11-04**: Documented micromamba's `exclude_newer` setting (mamba 2.10.0).
 - **2026-10-05**: Added Cursor extension cooldown documentation.
 - **2026-10-05**: Documented conda's `exclude_newer` setting (conda 26.9.0).
