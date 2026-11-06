@@ -1,0 +1,109 @@
+{# Small components shared by the page templates and inserted into the README body by build.py. #}
+
+{% macro icon(name) %}
+<svg class="i i-{{ name }}" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+{% if name == "menu" %}<path d="M4 7h16M4 12h16M4 17h10"/>
+{% elif name == "chevron" %}<path d="m7 10 5 5 5-5"/>
+{% elif name == "search" %}<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>
+{% elif name == "sun" %}<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>
+{% elif name == "moon" %}<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>
+{% elif name == "auto" %}<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>
+{% elif name == "github" %}<path fill="currentColor" stroke="none" transform="scale(1.5)" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/>
+{% elif name == "star" %}<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>
+{% elif name == "fork" %}<circle cx="6" cy="5" r="2.5"/><circle cx="18" cy="5" r="2.5"/><circle cx="12" cy="19" r="2.5"/><path d="M6 7.5v1.5a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7.5M12 12v4.5"/>
+{% endif %}
+</svg>
+{% endmacro %}
+
+{# Star and fork counts are filled in by app.js from the GitHub API. #}
+{% macro repo_link() %}
+<a class="repo" href="{{ site.repo }}" data-api="{{ site.repo_api }}" aria-label="Source on GitHub">
+  {{ icon("github") }}
+  <span class="repo-text" aria-hidden="true">
+    <span class="repo-name">GitHub</span>
+    <span class="repo-stats" hidden><span>{{ icon("star") }}<span data-stat="stars"></span></span><span>{{ icon("fork") }}<span data-stat="forks"></span></span></span>
+  </span>
+</a>
+{% endmacro %}
+
+{% macro footer() %}
+<footer class="site-footer">
+  <div class="footer-inner">
+    <span><a href="{{ site.repo }}">Source on GitHub</a> · <a href="{{ site.repo }}/issues">Report an issue</a></span>
+  </div>
+</footer>
+{% endmacro %}
+
+{% macro dot(support) %}<span class="dot dot-{{ support or 'blank' }}" aria-hidden="true"></span>{% endmacro %}
+
+{% macro chip(support) %}<span class="chip chip-{{ support }}">{{ dot(support) }}{{ labels[support] }}</span>{% endmacro %}
+
+{% macro hero_meta(updated) %}
+<p class="doc-meta">
+  {% if updated %}<span>Updated <time datetime="{{ updated }}">{{ updated }}</time></span>{% endif %}
+  <a href="#quick-reference">Support matrix</a>
+  <a href="#bypassing-cooldowns">Bypassing cooldowns</a>
+  <a href="#changelog">Changelog</a>
+</p>
+{% endmacro %}
+
+{% macro eco_index(eco) %}
+<ul class="eco-index" aria-label="{{ eco.name }} tools">
+{% for t in eco.tools %}
+  <li><a href="#{{ t.anchor }}">{{ dot(t.support) }}{{ t.name }}<span class="sr-only"> ({{ labels[t.support] }})</span></a></li>
+{% endfor %}
+</ul>
+{% endmacro %}
+
+{# Support card for a tool section: a strip under the heading on narrow screens,
+   a sticky card in the section's margin rail on wide ones. #}
+{% macro tool_card(t) %}
+<div class="tool-rail">
+<div class="tool-card" role="group" aria-label="{{ t.name }} support">
+  <p class="tc-title" aria-hidden="true">{{ t.name }}</p>
+  <p class="tc-support tc-{{ t.support }}">{{ dot(t.support) }}{{ labels[t.support] }} support</p>
+  <dl class="tc-rows">
+    {% if t.since %}<div><dt title="First version that supports a cooldown">Since</dt><dd class="mono">{{ t.since }}</dd></div>{% endif %}
+    <div><dt title="Cooldown that applies out of the box, before you configure one">Default</dt><dd>{{ t.default or "None" }}</dd></div>
+    {% if t.unit %}<div><dt title="What the cooldown value is measured in">Unit</dt><dd>{{ t.unit }}</dd></div>{% endif %}
+    {% if t.three_days %}<div><dt title="How to write a three-day cooldown for this tool">3 days</dt><dd class="mono">{{ t.three_days }}</dd></div>{% endif %}
+    {% if t.note %}<div class="tc-note"><dt>Note</dt><dd>{{ t.note }}</dd></div>{% endif %}
+  </dl>
+</div>
+</div>
+{% endmacro %}
+
+{% macro nav_item(item, dots=false) %}
+<li data-terms="{{ item.terms }}"{% if item.children %} class="nav-parent"{% endif %}><a href="#{{ item.id }}">{% if dots %}{{ dot(item.support) }}{% endif %}<span>{{ item.text }}</span>{% if item.support %}<span class="sr-only"> ({{ labels[item.support] }})</span>{% endif %}</a>
+{% if item.children %}
+  <ul class="nav-sub">
+  {% for c in item.children %}
+    <li><a href="#{{ c.id }}">{{ c.text }}</a></li>
+  {% endfor %}
+  </ul>
+{% endif %}
+</li>
+{% endmacro %}
+
+{% macro matrix(head, groups, counts) %}
+<div class="matrix">
+<ul class="legend" aria-label="Tools per support level">
+{% for support, n in counts %}
+  <li>{{ chip(support) }}<span class="legend-n">{{ n }}</span></li>
+{% endfor %}
+</ul>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Support matrix">
+<table class="matrix-table">
+<thead><tr><th scope="col">{{ head[0] }}</th><th scope="col">Status</th><th scope="col">{{ head[1] }}</th><th scope="col">{{ head[2] }}</th></tr></thead>
+{% for g in groups %}
+<tbody>
+<tr class="group"><th colspan="4" scope="rowgroup"><a href="#{{ g.anchor }}">{{ g.name }}</a></th></tr>
+{% for r in g.rows %}
+<tr><th scope="row"><a href="#{{ r.tool.anchor }}">{{ r.name }}</a></th><td>{{ chip(r.tool.support) }}</td><td class="m-support">{{ r.support }}</td><td class="m-config">{{ r.config }}</td></tr>
+{% endfor %}
+</tbody>
+{% endfor %}
+</table>
+</div>
+</div>
+{% endmacro %}
