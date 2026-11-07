@@ -1,0 +1,364 @@
+# Metadata that complements README.md for the site build (build.py).
+#
+# README.md stays the source of truth for prose and config snippets. This file
+# only classifies things so the site can build the sidebar, the per-tool support
+# cards, and the support matrix. Each `anchor` is a heading id in README.md.
+# Every [[tool]] must match one row of README's quick reference table, and every
+# H2 section must belong to an [[ecosystem]] or a [[group]]; the build checks both.
+#
+# support values:
+#   native       built-in, configurable cooldown
+#   partial      built-in but limited (e.g. update delay only, unstable/nightly)
+#   third-party  only via an external tool or wrapper
+#   none         no cooldown support
+#
+# Optional fields: since (first version with support), default (cooldown that
+# applies out of the box; shown as "None" when absent), note (short qualifier),
+# unit (what the cooldown value counts), three_days (a three-day cooldown
+# written in that tool's syntax; the build checks it appears in the tool's
+# README section), table_name (row name in the README quick reference table
+# when it differs from `name`).
+
+[[ecosystem]]
+id = "python"
+name = "Python"
+anchor = "python-ecosystem"
+
+[[ecosystem]]
+id = "javascript"
+name = "JavaScript"
+anchor = "javascript-ecosystem"
+
+[[ecosystem]]
+id = "rust"
+name = "Rust"
+anchor = "rust-ecosystem"
+
+[[ecosystem]]
+id = "ruby"
+name = "Ruby"
+anchor = "ruby-ecosystem"
+
+[[ecosystem]]
+id = "elixir"
+name = "Elixir"
+anchor = "elixir-ecosystem"
+
+[[ecosystem]]
+id = "jvm"
+name = "Scala / JVM"
+anchor = "scala-jvm-ecosystem"
+
+[[ecosystem]]
+id = "php"
+name = "PHP"
+anchor = "php-ecosystem"
+
+[[ecosystem]]
+id = "tool-managers"
+name = "Tool managers"
+anchor = "tool-managers"
+
+[[ecosystem]]
+id = "ide"
+name = "IDE extensions"
+anchor = "ide-extensions"
+
+[[ecosystem]]
+id = "github-actions"
+name = "GitHub Actions"
+anchor = "github-actions"
+
+[[ecosystem]]
+id = "other"
+name = "Other ecosystems"
+anchor = "other-ecosystems"
+
+# --- Python ---
+
+[[tool]]
+name = "uv"
+ecosystem = "python"
+anchor = "uv"
+support = "native"
+since = "0.9.17"
+unit = "duration"
+three_days = '"3 days"'
+
+[[tool]]
+name = "pip"
+ecosystem = "python"
+anchor = "pip"
+support = "native"
+since = "26.1"
+note = "Older versions accept absolute timestamps only"
+unit = "ISO 8601"
+three_days = "P3D"
+
+[[tool]]
+name = "pipenv"
+ecosystem = "python"
+anchor = "pipenv"
+support = "native"
+since = "2026.6.2"
+unit = "days"
+three_days = '"3d"'
+
+[[tool]]
+name = "pipx"
+ecosystem = "python"
+anchor = "pipx"
+support = "native"
+since = "1.16.0"
+unit = "days"
+three_days = "3"
+
+[[tool]]
+name = "Poetry"
+ecosystem = "python"
+anchor = "poetry"
+support = "native"
+since = "2.4.0"
+unit = "days"
+three_days = "3"
+
+[[tool]]
+name = "PDM"
+ecosystem = "python"
+anchor = "pdm"
+support = "native"
+since = "2.26.9"
+unit = "duration"
+three_days = '"3d"'
+
+[[tool]]
+name = "conda"
+ecosystem = "python"
+anchor = "conda"
+support = "native"
+since = "26.9.0"
+note = "Classic solver only"
+unit = "duration"
+three_days = "3d"
+
+[[tool]]
+name = "micromamba"
+ecosystem = "python"
+anchor = "micromamba"
+support = "native"
+since = "2.10.0"
+unit = "duration"
+three_days = "3d"
+
+[[tool]]
+name = "pixi"
+ecosystem = "python"
+anchor = "pixi"
+support = "native"
+since = "0.67.0"
+unit = "duration"
+three_days = '"3d"'
+
+# --- JavaScript ---
+
+[[tool]]
+name = "npm"
+ecosystem = "javascript"
+anchor = "npm-javascriptnodejs"
+support = "native"
+since = "11.10.0"
+unit = "days"
+three_days = "3"
+
+[[tool]]
+name = "pnpm"
+ecosystem = "javascript"
+anchor = "pnpm-javascriptnodejs"
+support = "native"
+since = "10.16.0"
+default = "1 day (v11+)"
+unit = "minutes"
+three_days = "4320"
+
+[[tool]]
+name = "Yarn"
+ecosystem = "javascript"
+anchor = "yarn-javascriptnodejs"
+support = "native"
+since = "4.10.0"
+default = "1 day (4.15.0+)"
+unit = "duration"
+three_days = '"3d"'
+
+[[tool]]
+name = "Bun"
+ecosystem = "javascript"
+anchor = "bun-javascriptnodejs"
+support = "native"
+since = "1.3"
+unit = "seconds"
+three_days = "259200"
+
+[[tool]]
+name = "Deno"
+ecosystem = "javascript"
+anchor = "deno-javascripttypescript"
+support = "native"
+since = "2.6"
+default = "24 hours (2.9+)"
+unit = "ISO 8601 or minutes"
+three_days = '"P3D"'
+
+[[tool]]
+name = "npm-check-updates"
+ecosystem = "javascript"
+anchor = "npm-check-updates-javascriptnodejs"
+support = "native"
+since = "18.2.0"
+unit = "days"
+three_days = "3"
+
+# --- Rust ---
+
+[[tool]]
+name = "Cargo"
+ecosystem = "rust"
+anchor = "cargo"
+support = "partial"
+note = "Unstable on nightly; cargo-cooldown wrapper on stable"
+unit = "duration"
+three_days = '"3 days"'
+
+# --- Ruby ---
+
+[[tool]]
+name = "Bundler"
+ecosystem = "ruby"
+anchor = "bundler"
+support = "native"
+since = "4.0.13"
+unit = "days"
+three_days = "3"
+
+# --- Elixir ---
+
+[[tool]]
+name = "Hex"
+ecosystem = "elixir"
+anchor = "hex"
+support = "native"
+since = "2.5.0"
+unit = "duration"
+three_days = '"3d"'
+
+# --- Scala / JVM ---
+
+[[tool]]
+name = "Scala Steward"
+ecosystem = "jvm"
+anchor = "scala-steward"
+support = "native"
+since = "0.38.0"
+unit = "duration"
+three_days = '"3 days"'
+
+# --- PHP ---
+
+[[tool]]
+name = "Composer"
+ecosystem = "php"
+anchor = "composer"
+support = "native"
+since = "2.11.0"
+unit = "duration or seconds"
+three_days = '"3 days"'
+
+# --- Tool managers ---
+
+[[tool]]
+name = "mise"
+ecosystem = "tool-managers"
+anchor = "mise"
+support = "native"
+default = "24 hours (2026.6.2+)"
+unit = "duration"
+three_days = '"3d"'
+
+# --- IDE extensions ---
+
+[[tool]]
+name = "VS Code"
+ecosystem = "ide"
+anchor = "vs-code"
+support = "partial"
+since = "1.125"
+default = "12 hours"
+note = "Delays automatic updates only"
+unit = "hours"
+three_days = "72"
+
+[[tool]]
+name = "Cursor"
+ecosystem = "ide"
+anchor = "cursor"
+support = "native"
+note = "Delays installs and updates"
+unit = "hours"
+three_days = "72"
+
+# --- GitHub Actions ---
+
+[[tool]]
+name = "actions-up"
+ecosystem = "github-actions"
+anchor = "actions-up"
+table_name = "GitHub Actions"
+support = "third-party"
+since = "1.6.0"
+default = "1 day (1.16.0+)"
+unit = "days"
+three_days = "3"
+
+# --- No native support ---
+
+[[tool]]
+name = "Go"
+ecosystem = "other"
+anchor = "other-ecosystems"
+support = "none"
+
+[[tool]]
+name = "Maven / Gradle"
+ecosystem = "other"
+anchor = "other-ecosystems"
+support = "none"
+note = "Scala Steward can cover Maven projects"
+
+[[tool]]
+name = "NuGet"
+ecosystem = "other"
+anchor = "other-ecosystems"
+support = "none"
+
+# --- Sidebar groups for sections that are not tools ---
+#
+# Every h1/h2 heading in README.md must be listed here or be an ecosystem
+# anchor; the build fails otherwise. `ecosystems = true` marks where the
+# ecosystem groups go. `label` overrides the heading text in the sidebar.
+
+[[group]]
+name = "Overview"
+anchors = ["dependency-cooldowns", "does-it-actually-work"]
+label = { dependency-cooldowns = "Introduction" }
+
+[[group]]
+name = "Tools by ecosystem"
+ecosystems = true
+
+[[group]]
+name = "Beyond package managers"
+anchors = ["dependency-update-bots", "security-scanners-and-pr-checks", "registry-level-proxies", "container-images"]
+
+[[group]]
+name = "Reference"
+anchors = ["cooldownssh", "quick-reference", "bypassing-cooldowns", "faq", "conclusion", "changelog"]

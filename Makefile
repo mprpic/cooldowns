@@ -3,12 +3,14 @@ export UV_EXCLUDE_NEWER ?= 3 days
 .PHONY: docs lint smoke-test
 
 docs:
-	uv run --with zensical zensical serve
+	uv run build.py --serve
 
 lint:
 	shellcheck cooldowns.sh
-	uv run --with mdlint mdlint check docs/index.md README.md
-	uv run --with zensical zensical build
+	uv run --with mdlint mdlint check README.md
+	uv run --with ruff ruff check
+	uv run --with ruff ruff format --check
+	uv run build.py
 
 smoke-test:
 	podman run --rm -i \

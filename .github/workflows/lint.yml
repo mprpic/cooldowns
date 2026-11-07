@@ -23,7 +23,12 @@ jobs:
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
 
       - name: Markdown lint
-        run: uv run --with mdlint mdlint check docs/index.md README.md
+        run: uv run --with mdlint mdlint check README.md
+
+      - name: Python lint
+        run: |
+          uv run --with ruff ruff check
+          uv run --with ruff ruff format --check
 
       - name: Validate docs
-        run: uv run --with zensical zensical build
+        run: uv run build.py

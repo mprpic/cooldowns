@@ -1,0 +1,18 @@
+# Lint and format settings for the Python build script (build.py).
+# Run with `uv run --with ruff ruff check` and `uv run --with ruff ruff format`.
+line-length = 120
+target-version = "py314"
+# Python files only: ruff would otherwise also reformat the Python examples in README.md.
+include = ["*.py"]
+
+[lint]
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes
+  "W",    # pycodestyle warnings
+  "I",    # import sorting
+  "UP",   # pyupgrade
+  "B",    # flake8-bugbear
+  "SIM",  # flake8-simplify
+  "RUF",  # ruff-specific rules
+]
