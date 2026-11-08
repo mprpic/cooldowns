@@ -1,0 +1,49 @@
+{% import "partials.html.j2" as ui %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{ title }}</title>
+<meta name="description" content="{{ site.description }}">
+<meta name="author" content="Martin Prpič">
+<link rel="canonical" href="{{ site.url }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="cooldowns.dev">
+<meta property="og:title" content="{{ site.name }}">
+<meta property="og:description" content="{{ site.description }}">
+<meta property="og:url" content="{{ site.url }}">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#3d0f35">
+<link rel="icon" href="{{ base }}favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="{{ base }}assets/style.css">
+<link rel="preload" href="{{ base }}assets/fonts/red-hat-text-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ base }}assets/fonts/red-hat-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<script>(function () { var d = document.documentElement; d.classList.add("js"); try { var t = localStorage.getItem("theme"); if (t === "light" || t === "dark") d.setAttribute("data-theme", t); } catch (e) {} })();</script>
+{# If app.js can't load, drop back to the no-JS layout instead of a menu that never opens. #}
+<script src="{{ base }}assets/app.js" defer onerror="document.documentElement.classList.remove('js')"></script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="site-header">
+  <div class="header-inner">
+    {% if nav_page %}
+    <button class="icon-btn menu-btn js-only" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="Open navigation">{{ ui.icon("menu") }}</button>
+    {% endif %}
+    <a class="brand" href="{{ home }}"><svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true" focusable="false">
+  <path class="logo-shield" d="M16 2.6c3.4 2.1 6.9 3 10.6 3.2v9.3c0 6.7-4.3 11.6-10.6 14.3C9.7 26.7 5.4 21.8 5.4 15.1V5.8C9.1 5.6 12.6 4.7 16 2.6z"/>
+  <circle class="logo-ring" cx="16" cy="15.6" r="6.7" fill="none" stroke-width="1.9"/>
+  <path class="logo-sweep" d="M16 15.6V11a4.6 4.6 0 1 1-4.6 4.6z"/>
+</svg>
+<span>cooldowns<span class="tld">.dev</span></span></a>
+    <div class="header-actions">
+      {{ ui.repo_link() }}
+      <button class="icon-btn theme-btn js-only" type="button" aria-label="Color theme">{{ ui.icon("auto") }}{{ ui.icon("sun") }}{{ ui.icon("moon") }}</button>
+    </div>
+  </div>
+  <div class="progress" aria-hidden="true"><span></span></div>
+</header>
+{% block layout %}{% endblock %}
+<div id="live" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

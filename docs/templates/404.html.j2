@@ -1,0 +1,12 @@
+{% extends "base.html.j2" %}
+{% set title = "Page not found · " ~ site.name %}
+{% block layout %}
+<main id="content" class="notfound" tabindex="-1">
+  <div class="doc">
+    <h1>Page not found</h1>
+    <p>Nothing lives at this address. The whole guide is on a single page.</p>
+    <p><a href="/">Go to the guide</a> or jump to the <a href="/#quick-reference">support matrix</a>.</p>
+  </div>
+</main>
+{{ ui.footer() }}
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html.j2" %}
+{% set nav_page = true %}
+{% block layout %}
+<div class="backdrop js-only" aria-hidden="true"></div>
+<div class="layout">
+  <nav id="sidebar" class="sidebar" aria-label="Sections" tabindex="-1">
+    <div class="nav-filter js-only">
+      <label class="sr-only" for="nav-filter">Filter sections</label>
+      {{ ui.icon("search") }}
+      <input id="nav-filter" type="search" placeholder="Find a tool" autocomplete="off" spellcheck="false" aria-controls="nav-scroll">
+      <kbd aria-hidden="true">/</kbd>
+    </div>
+    <div class="nav-scroll" id="nav-scroll">
+    {% for g in nav %}
+      <p class="nav-title" id="nav-g{{ loop.index }}">{{ g.name }}</p>
+      <ul class="nav-list" aria-labelledby="nav-g{{ loop.index }}">
+      {% if g.ecosystems %}
+        {% for e in g.ecosystems %}
+        <li class="nav-eco" data-terms="{{ e.name|lower }}">
+          <div class="eco-head">
+            <a href="#{{ e.anchor }}">{{ e.name }}</a>
+            <span class="eco-count" aria-hidden="true">{{ e.tools|length }}</span>
+            <button class="eco-toggle js-only" type="button" aria-expanded="true" aria-controls="nav-{{ e.id }}" aria-label="{{ e.name }} tools">{{ ui.icon("chevron") }}</button>
+          </div>
+          <ul id="nav-{{ e.id }}">
+          {% for item in e["items"] %}
+            {{ ui.nav_item(item, dots=true) }}
+          {% endfor %}
+          </ul>
+        </li>
+        {% endfor %}
+      {% else %}
+        {% for item in g["items"] %}
+        {{ ui.nav_item(item) }}
+        {% endfor %}
+      {% endif %}
+      </ul>
+    {% endfor %}
+      <p class="nav-empty" hidden>No matching sections. Try an ecosystem name.</p>
+    </div>
+  </nav>
+  <main id="content" tabindex="-1">
+    <article class="doc">
+{{ body }}
+    </article>
+  </main>
+  {# Inside the grid so the sticky sidebar's container reaches the page bottom; otherwise
+     the footer pushes the sidebar's top under the header at the end of the page. #}
+  {{ ui.footer() }}
+</div>
+{% endblock %}
