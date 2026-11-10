@@ -345,9 +345,9 @@ a distribution whose index entry lacks an `upload-time` field is treated as unav
 `--exclude-newer` flag for `conda create`, `install`, and `update`. It accepts a compact duration (`7d`, `3d12h`,
 `1w`), an ISO 8601 duration (`P7D`), an RFC 3339 timestamp, a `YYYY-MM-DD` date, or a number of seconds.
 
-Only the classic solver supports the cutoff so far. With the default libmamba solver, or the bundled rattler solver,
-conda refuses to run and reports that the solver does not support `--exclude-newer`. Support for both is still in
-review ([conda-libmamba-solver#905](https://github.com/conda/conda-libmamba-solver/pull/905),
+Only the classic solver supports the cutoff so far. With the default rattler solver (libmamba before 26.10.0), or with
+libmamba, conda refuses to run and reports that the solver does not support `--exclude-newer`. Support for both is
+still in review ([conda-libmamba-solver#905](https://github.com/conda/conda-libmamba-solver/pull/905),
 [conda-rattler-solver#49](https://github.com/conda/conda-rattler-solver/pull/49)). Until then, switch to the classic
 solver in your `.condarc` to use a cooldown:
 
@@ -414,16 +414,25 @@ For project-level config, set the following in your `pixi.toml` file:
 exclude-newer = "3d"
 ```
 
-Per-package overrides are available via the `[exclude-newer]` table for conda packages and `[pypi-exclude-newer]`
-for PyPI packages. To exempt a specific package from the cooldown, set it to `"0d"`:
+Since [0.84.0](https://github.com/prefix-dev/pixi/releases/tag/v0.84.0), packages are exempted from the cooldown
+with `exemptions`, written under `[workspace]` alongside a `cutoff`. A conda exemption takes a version spec, so you
+can let through only the release you vetted, or `"*"` for every release of a package. PyPI exemptions go under
+`pypi-exclude-newer` and only accept `"*"` for now:
 
 ```ini
 [workspace]
-exclude-newer = "3d"
+pypi-exclude-newer = { exemptions = { torch = "*" } }
 
-[pypi-exclude-newer]
-torch = "0d"
+[workspace.exclude-newer]
+cutoff = "3d"
+
+[workspace.exclude-newer.exemptions]
+polars = "==1.43.1"
 ```
+
+`pixi workspace exclude-newer exempt polars==1.43.1` adds an exemption without editing the manifest (pass `--pypi` for
+PyPI packages). The older top-level `[exclude-newer]` and `[pypi-exclude-newer]` tables of per-package cutoffs are
+deprecated and will be removed.
 
 For more advanced settings (e.g. per-channel overrides), the
 [docs](https://pixi.prefix.dev/latest/security/#2-delay-fresh-uploads-with-exclude-newer) describe how to allow
@@ -1309,7 +1318,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | pipx            | Per-run only       | `--cooldown 0` disables for a single command                                                        |
 | poetry          | Yes                | `solver.min-release-age-exclude = "pkg"` or env var                                                 |
 | PDM             | Yes (2.29.1+)      | `[tool.pdm.resolution.exclude-newer-override]` table, set to `false`                                |
-| pixi            | Yes                | `[pypi-exclude-newer]` / `[exclude-newer]` table, set to `"0d"`                                     |
+| pixi            | Yes (0.84.0+)      | `exemptions` under `[workspace.exclude-newer]` / `pypi-exclude-newer`, e.g. `pkg = "*"`             |
 | conda           | Yes                | `exclude_newer_package` map in `.condarc`, set to `false`                                           |
 | micromamba      | Yes                | `exclude_newer_package` map set to `false`, or `--exclude-newer-package '{pkg: false}'`             |
 | npm             | Yes (11.17+)       | `min-release-age-exclude[]` in `.npmrc` (globs supported)                                           |
