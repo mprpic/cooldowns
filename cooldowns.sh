@@ -13,6 +13,7 @@
 #   cooldowns.sh check
 #
 # Changelog:
+#   2026-11-12  Cargo >= 1.100: no longer require cargo-cooldown; detect global-min-publish-age in ~/.cargo/config.toml; warn when cargo's cooldown is "0"
 #   2026-09-29  Fixed npm check reporting an unset min-release-age ("null") as configured
 #   2026-09-22  Write bun's bunfig to $XDG_CONFIG_HOME/.bunfig.toml when XDG_CONFIG_HOME is set
 #   2026-09-14  Switched cargo to CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE (COOLDOWN_MINUTES is deprecated since cargo-cooldown 0.3.1)
@@ -38,7 +39,7 @@
 #   bun    minimumReleaseAge in ~/.bunfig.toml (or $XDG_CONFIG_HOME/.bunfig.toml)
 #   deno   Aliases in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #   cargo  CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
-#          (read by cargo-cooldown >= 0.3.1 and by Cargo >= 1.100 natively)
+#          (read natively by Cargo >= 1.100, and by cargo-cooldown >= 0.3.1 on older Cargo)
 #   bundler BUNDLE_COOLDOWN export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #          (requires Bundler >= 4.0.13)
 #
@@ -553,6 +554,51 @@ SHELL
     echo "  note: deno has no persistent config for this; use 'deno-update' and 'deno-outdated' aliases"
 }
 
+# Cargo >= 1.100 reads CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE itself, so the
+# cargo-cooldown subcommand is only needed on older toolchains.
+cargo_has_native_cooldown() {
+    local version
+    # "cargo 1.100.0 (abc 2026-11-05)"; strip pre-release suffixes like "-nightly"
+    version=$(cargo --version 2>/dev/null | awk '{sub(/-.*/, "", $2); print $2; exit}')
+    [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]] && version_gte "$version" "1.100"
+}
+
+# Print "<value>\t<file>" for registry.global-min-publish-age in Cargo's user
+# config, so check/set can see a cooldown configured there instead of via env.
+cargo_config_publish_age() {
+    local home="${CARGO_HOME:-$HOME/.cargo}" f val
+    # Cargo reads the extensionless legacy file when both exist
+    for f in "$home/config" "$home/config.toml"; do
+        [[ -f "$f" ]] || continue
+        val=$(awk '
+            { sub(/\r$/, "") }
+            /^[[:space:]]*\[/ { section = $0; sub(/#.*/, "", section); gsub(/[[:space:]]/, "", section); next }
+            {
+                key = ""
+                if (section == "[registry]") key = "global-min-publish-age"
+                else if (section == "") key = "registry\\.global-min-publish-age"
+                if (key != "" && match($0, "^[[:space:]]*" key "[[:space:]]*=[[:space:]]*")) {
+                    val = substr($0, RSTART + RLENGTH)
+                    sub(/[[:space:]]*(#.*)?$/, "", val)
+                    gsub(/^["'\'']|["'\'']$/, "", val)
+                    print val
+                    exit
+                }
+            }
+        ' "$f")
+        if [[ -n "$val" ]]; then
+            printf '%s\t%s\n' "$val" "$f"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# "0" (with or without a unit) is Cargo's way of turning the cooldown off.
+cargo_age_disabled() {
+    [[ "$1" =~ ^0+([[:space:]]*[a-z]+)?$ ]]
+}
+
 set_cargo() {
     local days="$1"
     if ! command -v cargo &>/dev/null; then
@@ -564,13 +610,24 @@ set_cargo() {
     ensure_profile_dir
 
     if ! find_in_profiles "cooldowns:cargo:start" &>/dev/null; then
+        local hint=""
         if [[ -n "${CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE:-}" ]]; then
-            echo "cargo: CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE is already set to '$CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE', skipping"
+            cargo_age_disabled "$CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE" && hint=" (this disables the cooldown; unset it and re-run)"
+            echo "cargo: CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE is already set to '$CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE', skipping$hint"
             return
         fi
         local existing_file
         if existing_file=$(find_in_profiles "CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="); then
-            echo "cargo: CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE is already configured in $existing_file, skipping"
+            cargo_age_disabled "$(extract_kv CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE "$existing_file")" \
+                && hint=" (it disables the cooldown; remove it and re-run)"
+            echo "cargo: CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE is already configured in $existing_file, skipping$hint"
+            return
+        fi
+        # A "0" in Cargo's config is replaced by the env var, which takes precedence
+        local cfg
+        if cargo_has_native_cooldown && cfg=$(cargo_config_publish_age) \
+           && ! cargo_age_disabled "${cfg%%$'\t'*}"; then
+            echo "cargo: global-min-publish-age is already set to '${cfg%%$'\t'*}' in ${cfg#*$'\t'}, skipping"
             return
         fi
     fi
@@ -583,8 +640,10 @@ export CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="$value"
 # cooldowns:cargo:end
 SHELL
     echo "cargo: set CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE=\"$value\" in $PROFILE_SCRIPT"
-    echo "  note: Cargo < 1.100 has no native cooldown support. You must use 'cargo cooldown <command>' instead of 'cargo <command>'."
-    echo "  Install the crate with: cargo install cargo-cooldown (>= 0.3.1)"
+    if ! cargo_has_native_cooldown; then
+        echo "  note: Cargo < 1.100 has no native cooldown support. You must use 'cargo cooldown <command>' instead of 'cargo <command>'."
+        echo "  Install the crate with: cargo install cargo-cooldown (>= 0.3.1)"
+    fi
 }
 
 set_bundler() {
@@ -927,25 +986,47 @@ check_deno() {
 }
 
 check_cargo() {
-    if ! cargo install --list 2>/dev/null | grep -q '^cargo-cooldown '; then
-        record cargo $STATUS_WARN "cargo-cooldown crate is not installed"
+    if ! command -v cargo &>/dev/null; then
+        record cargo $STATUS_WARN "cargo not found on PATH"
         return
     fi
 
-    if [[ -n "${CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE:-}" ]]; then
-        record cargo $STATUS_OK "CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE=\"$CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE\""
+    local native=0
+    cargo_has_native_cooldown && native=1
+    if (( ! native )) && ! cargo install --list 2>/dev/null | grep -q '^cargo-cooldown '; then
+        record cargo $STATUS_WARN "Cargo < 1.100 and cargo-cooldown crate is not installed"
         return
+    fi
+
+    # Sources in Cargo's precedence order: env var, profile export (once
+    # sourced), then Cargo's own config
+    local val="" desc=""
+    if [[ -n "${CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE:-}" ]]; then
+        val="$CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE"
+        desc="CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE=\"$val\""
     fi
 
     local profile_file
-    if profile_file=$(find_in_profiles "cooldowns:cargo:start") \
-       || profile_file=$(find_in_profiles "CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="); then
-        local val
+    if [[ -z "$val" ]] && { profile_file=$(find_in_profiles "cooldowns:cargo:start") \
+       || profile_file=$(find_in_profiles "CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="); }; then
         val=$(extract_kv CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE "$profile_file" || echo "")
-        if [[ -n "$val" ]]; then
-            record cargo $STATUS_OK "CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE=\"$val\" in $profile_file (not yet sourced)"
-            return
+        [[ -n "$val" ]] && desc="CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE=\"$val\" in $profile_file (not yet sourced)"
+    fi
+
+    # cargo-cooldown reads its own cooldown.toml, so Cargo's config only counts natively
+    local cfg
+    if [[ -z "$val" ]] && (( native )) && cfg=$(cargo_config_publish_age); then
+        val="${cfg%%$'\t'*}"
+        desc="global-min-publish-age = \"$val\" in ${cfg#*$'\t'}"
+    fi
+
+    if [[ -n "$val" ]]; then
+        if cargo_age_disabled "$val"; then
+            record cargo $STATUS_WARN "$desc disables the cooldown"
+        else
+            record cargo $STATUS_OK "$desc"
         fi
+        return
     fi
 
     # Configs written before 2026-09-14 used cargo-cooldown's deprecated variable
@@ -1078,7 +1159,7 @@ where configs are written (all user-wide; project-level configs are not modified
   bun    bunfig.toml key    ~/.bunfig.toml
   deno   shell aliases      /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
   cargo  env var export     /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
-                            (requires cargo-cooldown >= 0.3.1 or Cargo >= 1.100; use 'cargo cooldown <cmd>')
+                            (requires Cargo >= 1.100, or cargo-cooldown >= 0.3.1 via 'cargo cooldown <cmd>')
   bundler env var export    /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
                             (requires Bundler >= 4.0.13)
 

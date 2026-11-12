@@ -224,8 +224,8 @@ three_days = "3"
 name = "Cargo"
 ecosystem = "rust"
 anchor = "cargo"
-support = "partial"
-note = "Unstable on nightly; cargo-cooldown wrapper on stable"
+support = "native"
+since = "1.100"
 unit = "duration"
 three_days = '"3 days"'
 

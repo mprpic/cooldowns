@@ -643,39 +643,48 @@ version that passes it instead of being skipped. For per-package control, `coold
 
 ### Cargo
 
-Cargo doesn't have native cooldown support on stable yet, but it is close. Cargo 1.94 added `pubtime` fields to the
-crate index (the prerequisite), an RFC
-([#3923](https://github.com/rust-lang/rfcs/blob/master/text/3923-cargo-min-publish-age.md)) for native cooldowns was
-accepted, and Cargo 1.98 shipped the implementation as the unstable `-Zmin-publish-age` feature. The stabilization
-PR ([#17335](https://github.com/rust-lang/cargo/pull/17335)) was merged on 2026-08-28 and is slated for Rust 1.100,
-expected on 2026-11-12.
+Cargo supports cooldowns natively since Rust 1.100 (released 2026-11-12), implementing
+[RFC 3923](https://rust-lang.github.io/rfcs/3923-cargo-min-publish-age.html). When resolving dependencies, Cargo
+ignores versions published more recently than the configured minimum age, unless they are already in `Cargo.lock`.
+Set it globally in `~/.cargo/config.toml`:
 
-Until then, the third-party [`cargo-cooldown`](https://crates.io/crates/cargo-cooldown) crate can be used instead.
-Note that `cargo-cooldown` is a cargo subcommand, not a transparent wrapper. You must use `cargo cooldown <command>`
-instead of `cargo <command>` for cooldowns to take effect. Since version 0.3.1 it uses the same configuration keys as
-the upcoming native feature (the older `COOLDOWN_MINUTES` variable is deprecated):
+```toml
+[registry]
+global-min-publish-age = "3 days"
+```
+
+Or with an environment variable:
 
 ```bash
-cargo install cargo-cooldown
 export CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="3 days"
-cargo cooldown build
 ```
 
-To exempt a specific crate from the cooldown, add an `[[allow.package]]` entry to `cooldown.toml`:
+Values are an integer followed by `seconds`, `minutes`, `hours`, `days`, `weeks`, or `months`, or `"0"` (the default)
+to disable the cooldown. To use a different value for an alternate registry, set
+`registries.<name>.min-publish-age`, which overrides the global setting for that registry. See the
+[configuration reference](https://doc.rust-lang.org/stable/cargo/reference/config.html#registryglobal-min-publish-age)
+for details.
 
-```toml
-[[allow.package]]
-crate = "openssl"
-min-publish-age = "0"
+The cooldown relies on the `pubtime` field that the registry records in its index for each version (supported by
+Cargo since 1.94). Versions without a `pubtime` are not held back, so a registry that doesn't provide it gets no
+protection. crates.io records `pubtime` for every new release, so the cooldown is effective there, although some
+older versions may still lack it.
+
+There is no per-crate exemption. To bypass the cooldown for a single update, for example to pull in a security fix,
+allow recent versions for one command and pin the exact version you want:
+
+```bash
+CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow cargo update -p openssl --precise <fixed-version>
 ```
 
-Or allow a specific crate version with `[[allow.exact]]`:
+This sets `resolver.incompatible-publish-age` (default `deny`) to `allow` for that run only. It disables the age
+check for the whole resolve, not just the named crate, so any dependencies the update pulls in or bumps are not
+checked either, and later runs keep whatever was locked in `Cargo.lock`. Without `--precise`, the update would take
+the newest version even if it was published minutes ago. Review the `Cargo.lock` diff before committing it.
 
-```toml
-[[allow.exact]]
-crate = "serde"
-version = "1.0.218"
-```
+On toolchains older than 1.100, the third-party [`cargo-cooldown`](https://crates.io/crates/cargo-cooldown) crate
+reads the same `CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE` variable (since 0.3.1), but it is a subcommand, so you must
+run `cargo cooldown <command>` instead of `cargo <command>`.
 
 ## Ruby Ecosystem
 
@@ -1211,19 +1220,19 @@ cooldowns.sh set npm 7d
 Each `set` command writes a user-wide configuration for that tool. Project-level configs are not modified. The exact
 location depends on the tool:
 
-| Tool    | Method                                           | Location                                       |
-|---------|--------------------------------------------------|------------------------------------------------|
-| pip     | Env var export (26.1+) or shell wrapper (older)  | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
-| uv      | Env var export                                   | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
-| poetry  | `poetry config` setting                          | `~/.config/pypoetry/config.toml`               |
-| pdm     | `pdm config` setting (requires PDM >= 2.27.0)    | `~/.config/pdm/config.toml`                    |
-| npm     | `.npmrc` key                                     | `~/.npmrc`                                     |
-| pnpm    | `.npmrc` key                                     | `~/.npmrc`                                     |
-| yarn    | Env var export                                   | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
-| bun     | `bunfig.toml` key                                | `~/.bunfig.toml` (or `$XDG_CONFIG_HOME/`)      |
-| deno    | Shell aliases                                    | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
-| cargo   | Env var export (requires `cargo-cooldown` crate) | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
-| bundler | Env var export (requires Bundler >= 4.0.13)      | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| Tool    | Method                                              | Location                                       |
+|---------|-----------------------------------------------------|------------------------------------------------|
+| pip     | Env var export (26.1+) or shell wrapper (older)     | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| uv      | Env var export                                      | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| poetry  | `poetry config` setting                             | `~/.config/pypoetry/config.toml`               |
+| pdm     | `pdm config` setting (requires PDM >= 2.27.0)       | `~/.config/pdm/config.toml`                    |
+| npm     | `.npmrc` key                                        | `~/.npmrc`                                     |
+| pnpm    | `.npmrc` key                                        | `~/.npmrc`                                     |
+| yarn    | Env var export                                      | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| bun     | `bunfig.toml` key                                   | `~/.bunfig.toml` (or `$XDG_CONFIG_HOME/`)      |
+| deno    | Shell aliases                                       | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| cargo   | Env var export (Cargo >= 1.100 or `cargo-cooldown`) | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| bundler | Env var export (requires Bundler >= 4.0.13)         | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
 
 Tools that use profile scripts write to `/etc/profile.d/cooldowns.sh` if the directory exists and is writable,
 otherwise they fall back to `~/.bashrc`.
@@ -1291,7 +1300,7 @@ RUN cooldowns.sh check
 | Bun             | Relative durations                         | `minimumReleaseAge = 259200` in `bunfig.toml`                     |
 | Deno            | Relative durations (24h default in 2.9+)   | `minimumDependencyAge: "P3D"` in `deno.json`                      |
 | npm-check-updates | Relative durations (18.2.0+)             | `ncu --cooldown 3`; reads npm/pnpm/Yarn cooldown config (20.0.0+) |
-| Cargo           | Unstable on nightly; third-party           | `cargo cooldown <cmd>` via `cargo-cooldown` crate                 |
+| Cargo           | Relative durations (1.100+)                | `global-min-publish-age = "3 days"` in `~/.cargo/config.toml`     |
 | Bundler         | Relative durations (4.0.13+)               | `bundle config set cooldown 3` / `--cooldown 3`                   |
 | Hex             | Relative durations (2.5.0+)                | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
 | Scala Steward   | Relative durations (0.38.0+)               | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
@@ -1327,7 +1336,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | Bun             | Yes                | `minimumReleaseAgeExcludes` list in `bunfig.toml`                                                   |
 | Deno            | Yes                | Object form with `exclude` array in `deno.json`                                                     |
 | npm-check-updates | Yes              | `cooldown` predicate function in `.ncurc.js` (19.1.0+)                                              |
-| Cargo           | Yes                | `[[allow.package]]` / `[[allow.exact]]` in `cooldown.toml`                                          |
+| Cargo           | Per-run only       | `CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow cargo update -p <crate> --precise <ver>`             |
 | Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                                     |
 | Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
 | Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`                                     |
@@ -1377,7 +1386,7 @@ CVE fixes still arrive immediately.
 
 Native package-manager cooldowns can't tell a security fix from any other new release, they only filter by age.
 A CVE fix published inside the cooldown window is held back too. You can override behavior manually: exempt the
-package where your tool supports it (uv, poetry, npm, pnpm, Yarn, Bun, Deno, Cargo, and others), or override the
+package where your tool supports it (uv, poetry, npm, pnpm, Yarn, Bun, Deno, and others), or override the
 whole install where it doesn't (notably pip). See [Bypassing cooldowns](#bypassing-cooldowns) for per-tool syntax.
 
 ### Should cooldowns replace lockfiles?
@@ -1412,6 +1421,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 <details markdown>
 <summary>Show all entries</summary>
 
+- **2026-11-12**: Documented Cargo's native `global-min-publish-age` setting (Rust 1.100).
 - **2026-11-04**: Added Composer (PHP) cooldown documentation.
 - **2026-11-04**: Documented micromamba's `exclude_newer` setting (mamba 2.10.0).
 - **2026-10-05**: Added Cursor extension cooldown documentation.
