@@ -659,6 +659,9 @@ Or with an environment variable:
 export CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE="3 days"
 ```
 
+For project-level config, put the same setting in `.cargo/config.toml` at the root of your project. Cargo reads it
+when run from that directory or any directory below it.
+
 Values are an integer followed by `seconds`, `minutes`, `hours`, `days`, `weeks`, or `months`, or `"0"` (the default)
 to disable the cooldown. To use a different value for an alternate registry, set
 `registries.<name>.min-publish-age`, which overrides the global setting for that registry. See the
@@ -681,6 +684,10 @@ This sets `resolver.incompatible-publish-age` (default `deny`) to `allow` for th
 check for the whole resolve, not just the named crate, so any dependencies the update pulls in or bumps are not
 checked either, and later runs keep whatever was locked in `Cargo.lock`. Without `--precise`, the update would take
 the newest version even if it was published minutes ago. Review the `Cargo.lock` diff before committing it.
+
+`cargo install` ignores the cooldown, both for the crate it installs and for that crate's dependencies. Pin the
+version you want (`cargo install foo@1.2.3`) and add `--locked` to build with the dependency versions from the
+crate's packaged `Cargo.lock` instead of resolving the newest ones.
 
 On toolchains older than 1.100, the third-party [`cargo-cooldown`](https://crates.io/crates/cargo-cooldown) crate
 reads the same `CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE` variable (since 0.3.1), but it is a subcommand, so you must
