@@ -685,9 +685,10 @@ check for the whole resolve, not just the named crate, so any dependencies the u
 checked either, and later runs keep whatever was locked in `Cargo.lock`. Without `--precise`, the update would take
 the newest version even if it was published minutes ago. Review the `Cargo.lock` diff before committing it.
 
-`cargo install` ignores the cooldown, both for the crate it installs and for that crate's dependencies. Pin the
-version you want (`cargo install foo@1.2.3`) and add `--locked` to build with the dependency versions from the
-crate's packaged `Cargo.lock` instead of resolving the newest ones.
+`cargo install` doesn't apply the cooldown to the crate it installs, so pin a version older than your cooldown
+(`cargo install foo@1.2.3`). Since 1.100, Cargo builds it with the dependency versions from the crate's packaged
+`Cargo.lock` by default, and `--locked` no longer changes that. If the crate was published without a `Cargo.lock`,
+Cargo resolves the newest dependency versions instead, and doesn't apply the cooldown to them either.
 
 On toolchains older than 1.100, the third-party [`cargo-cooldown`](https://crates.io/crates/cargo-cooldown) crate
 reads the same `CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE` variable (since 0.3.1), but it is a subcommand, so you must
