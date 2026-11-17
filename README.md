@@ -749,22 +749,26 @@ source "https://gems.internal.example.com", cooldown: 0 do
 end
 ```
 
+Since Bundler 4.1.0, a `:cooldown:` setting in `~/.gemrc` raises this per-source value too, so `cooldown: 0` only
+exempts a source when gemrc sets no cooldown.
+
 Bundler fails open: it only holds back versions it can prove are too new. Versions lacking a `created_at` timestamp
 (older servers, v1-format registries, some private gems) remain resolvable. See the
 [RubyGems blog announcement](https://blog.rubygems.org/2026/06/03/cooldown-let-new-gems-be-vetted.html) for more
 information.
 
-RubyGems 4.1.0 (in beta since [4.1.0.beta1](https://blog.rubygems.org/2026/09/09/4.1.0.beta1-released.html)) extends
-the cooldown to the `gem` command itself. `gem install`, `gem update` (including `--system`), and `gem outdated` accept
-`--cooldown DAYS`, and the `:cooldown:` setting in `~/.gemrc` sets a default:
+[RubyGems 4.1.0](https://blog.rubygems.org/2026/11/16/4.1.0-released.html) extends the cooldown to the `gem` command
+itself. `gem install`, `gem update` (including `--system`), and `gem outdated` accept `--cooldown DAYS`, and
+the `:cooldown:` setting in `~/.gemrc` sets a default:
 
 ```bash
 gem install rails --cooldown 3
 ```
 
-`gem` and `bundle` also read each other's settings (`:cooldown:` in gemrc and `BUNDLE_COOLDOWN`), with the longer value
-applying, so a cooldown configured for one tool covers the other. `--cooldown 0` bypasses both. Like Bundler, `gem`
-never excludes versions without a known publish time.
+Since 4.1.0, `gem` and `bundle` also read each other's settings (`:cooldown:` in gemrc and `BUNDLE_COOLDOWN`), with the
+longer value applying, so a cooldown configured for one tool covers the other. A configured `0` does not switch off the
+other tool's cooldown; only `--cooldown 0` bypasses both. Like Bundler, `gem` never excludes versions without a known
+publish time.
 
 ## Elixir Ecosystem
 
