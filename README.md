@@ -803,7 +803,7 @@ end
 To exclude specific repositories from the cooldown (useful when an organization publishes hotfixes to its own repo):
 
 ```bash
-mix hex.config cooldown_exclude_repos '["hexpm:myorg"]'
+mix hex.config cooldown_exclude_repos hexpm:myorg
 ```
 
 Or as an environment variable (comma-separated):
@@ -812,9 +812,15 @@ Or as an environment variable (comma-separated):
 export HEX_COOLDOWN_EXCLUDE_REPOS="hexpm:myorg"
 ```
 
+In `mix.exs`, the same setting takes a list: `hex: [cooldown_exclude_repos: ["hexpm:myorg"]]`. To disable the cooldown
+for a single run, set `HEX_COOLDOWN=0`.
+
 Hex fails open: releases without a `published_at` timestamp (legacy registry data, repos that haven't rebuilt their
-index) remain resolvable. Packages already present in the lockfile bypass the cooldown entirely, and packages locked
-to a version that is retired or has a security advisory are allowed to re-resolve even during cooldown.
+index) remain resolvable, and an invalid duration (such as `72h`) prints a warning and disables the cooldown. The
+cooldown only filters versions being resolved: dependencies installed from `mix.lock` are not affected and a locked
+version stays allowed, but `mix deps.update` still holds back newer releases. If a locked version has a security
+advisory, the cooldown is lifted for that package and its direct dependencies, in the repository it's locked from.
+Since [2.5.2](https://github.com/hexpm/hex/releases/tag/v2.5.2), a retired locked version no longer lifts it.
 
 ## Scala / JVM Ecosystem
 
@@ -1400,7 +1406,7 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | npm-check-updates | Yes              | `cooldown` predicate function in `.ncurc.js` (19.1.0+)                                              |
 | Cargo           | Per-run only       | `CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow cargo update -p <crate> --precise <ver>`             |
 | Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                                     |
-| Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
+| Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories; `HEX_COOLDOWN=0` disables for run             |
 | Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`                                     |
 | Composer        | Yes                | `policy.cooldown.ignore` list (supports wildcards); `--no-cooldown` disables for run                |
 | NuGet           | Yes                | `minPublishAgeExceptions` patterns (ID or `Prefix.*`); `--version` on `dotnet package add`          |
