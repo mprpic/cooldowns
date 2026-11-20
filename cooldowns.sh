@@ -13,6 +13,7 @@
 #   cooldowns.sh check
 #
 # Changelog:
+#   2026-11-16  Added nuget support (minPublishAgeHours on the nuget.org source, .NET SDK >= 11.0.100)
 #   2026-11-12  Cargo >= 1.100: no longer require cargo-cooldown; detect global-min-publish-age in ~/.cargo/config.toml; warn when cargo's cooldown is "0"
 #   2026-09-29  Fixed npm check reporting an unset min-release-age ("null") as configured
 #   2026-09-22  Write bun's bunfig to $XDG_CONFIG_HOME/.bunfig.toml when XDG_CONFIG_HOME is set
@@ -23,7 +24,7 @@
 #   2026-05-28  Use pnpm config set --global for pnpm to avoid npm unknown-key warnings
 #   2026-05-07  Added pip 26.1+ duration format support (e.g. P3D)
 #
-# Supported tools: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler
+# Supported tools: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler, nuget
 #
 # Where configs are written:
 #   pip    Shell wrapper (pip < 26.1) or env var export (pip >= 26.1)
@@ -42,6 +43,8 @@
 #          (read natively by Cargo >= 1.100, and by cargo-cooldown >= 0.3.1 on older Cargo)
 #   bundler BUNDLE_COOLDOWN export in /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
 #          (requires Bundler >= 4.0.13)
+#   nuget  minPublishAgeHours on the nuget.org source in ~/.nuget/NuGet/NuGet.Config
+#          (requires .NET SDK >= 11.0.100)
 #
 # Profile scripts fall back to the user's rc file (~/.zshrc or ~/.bashrc, based
 # on $SHELL) when /etc/profile.d is not writable.
@@ -214,6 +217,7 @@ duration_for_tool() {
         yarn)     echo $(( days * 24 * 60 )) ;;          # minutes
         cargo)    echo "$days days" ;;                   # RFC 3923 duration
         bundler)  echo "$days" ;;                         # integer days
+        nuget)    echo $(( days * 24 )) ;;               # hours
         *)        echo "$days" ;;
     esac
 }
@@ -677,10 +681,99 @@ SHELL
     echo "  note: requires Bundler >= 4.0.13. Per-project you can instead run 'bundle config set cooldown $value' or add 'cooldown: $value' to a Gemfile source."
 }
 
+NUGET_ORG_URL="https://api.nuget.org/v3/index.json"
+
+# The user-level config that `dotnet nuget` reads on Linux and macOS.
+nuget_user_config() {
+    echo "$HOME/.nuget/NuGet/NuGet.Config"
+}
+
+# SDK version from / so that a global.json in the current directory can't pin
+# an older SDK. A prerelease suffix ("11.0.100-rc.2...") is dropped.
+nuget_sdk_version() {
+    local version
+    version=$(cd / && dotnet --version 2>/dev/null) || return 1
+    echo "${version%%-*}"
+}
+
+# Print "<key><TAB><minPublishAgeHours>" for the nuget.org package source in the
+# given config (age is empty when unset). The source is matched by its key or by
+# its URL, ignoring case and a trailing slash; <add> elements outside
+# <packageSources> (e.g. <auditSources>) are not sources. NuGet writes each <add>
+# on one line.
+nuget_org_source() {
+    local file="$1"
+    [[ -f "$file" ]] || return 1
+    awk -v url="$NUGET_ORG_URL" '
+        function attr(line, name,    m) {
+            if (match(line, name "=\"[^\"]*\"")) {
+                m = substr(line, RSTART + length(name) + 2, RLENGTH - length(name) - 3)
+                return m
+            }
+            return ""
+        }
+        /<packageSources[[:space:]>]/ { in_sources = 1 }
+        /<\/packageSources>/ { in_sources = 0 }
+        in_sources && /<add[[:space:]]/ {
+            key = attr($0, "key")
+            value = tolower(attr($0, "value"))
+            sub(/\/$/, "", value)
+            if (tolower(key) == "nuget.org" || value == url) {
+                printf "%s\t%s\n", key, attr($0, "minPublishAgeHours")
+                found = 1
+                exit
+            }
+        }
+        END { exit !found }
+    ' "$file"
+}
+
+set_nuget() {
+    local days="$1"
+    if ! command -v dotnet &>/dev/null; then
+        echo "nuget: not installed, skipping"
+        return
+    fi
+    local sdk_version
+    sdk_version=$(nuget_sdk_version) || sdk_version=""
+    if [[ -z "$sdk_version" ]] || ! version_gte "$sdk_version" "11.0.100"; then
+        echo "nuget: minPublishAgeHours requires .NET SDK >= 11.0.100 (found ${sdk_version:-none}), skipping"
+        return
+    fi
+
+    local hours cfg source key="" age=""
+    hours=$(duration_for_tool "$days" nuget)
+    cfg=$(nuget_user_config)
+    if source=$(nuget_org_source "$cfg"); then
+        key="${source%%$'\t'*}"
+        age="${source#*$'\t'}"
+    fi
+    if [[ -n "$age" && "$age" != "0" ]]; then
+        echo "nuget: minPublishAgeHours is already set to '$age' on source '$key' in $cfg, skipping"
+        return
+    fi
+
+    # Run from / so a nuget.config in the current directory isn't consulted.
+    # dotnet prints its errors on stdout, so show the output only on failure.
+    local out
+    if [[ -n "$key" ]]; then
+        out=$(cd / && dotnet nuget update source "$key" --min-publish-age-hours "$hours" --configfile "$cfg" 2>&1) \
+            || { echo "nuget: failed to update source '$key' in $cfg: $out" >&2; return 1; }
+    else
+        key="nuget.org"
+        mkdir -p "$(dirname "$cfg")"
+        [[ -f "$cfg" ]] || printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration>\n</configuration>\n' > "$cfg"
+        out=$(cd / && dotnet nuget add source "$NUGET_ORG_URL" -n "$key" --min-publish-age-hours "$hours" --configfile "$cfg" 2>&1) \
+            || { echo "nuget: failed to add source '$key' to $cfg: $out" >&2; return 1; }
+    fi
+    echo "nuget: set minPublishAgeHours=$hours on source '$key' in $cfg"
+    echo "  note: applies to 'dotnet package add' and 'dotnet package update'; a project nuget.config that redefines this source, or any other source, needs its own minPublishAgeHours."
+}
+
 do_set() {
     if [[ $# -lt 2 ]]; then
         echo "usage: cooldowns.sh set <tool> <duration>" >&2
-        echo "tools: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler" >&2
+        echo "tools: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler, nuget" >&2
         return 1
     fi
 
@@ -700,9 +793,10 @@ do_set() {
         deno)  set_deno "$days" ;;
         cargo) set_cargo "$days" ;;
         bundler) set_bundler "$days" ;;
+        nuget) set_nuget "$days" ;;
         *)
             echo "error: unknown tool '$tool'" >&2
-            echo "supported: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler" >&2
+            echo "supported: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler, nuget" >&2
             return 1
             ;;
     esac
@@ -1056,6 +1150,31 @@ check_bundler() {
     record bundler $STATUS_MISSING "no cooldown configured"
 }
 
+check_nuget() {
+    local cfg source key="" age=""
+    cfg=$(nuget_user_config)
+    if source=$(nuget_org_source "$cfg"); then
+        key="${source%%$'\t'*}"
+        age="${source#*$'\t'}"
+    fi
+
+    if command -v dotnet &>/dev/null; then
+        local sdk_version
+        sdk_version=$(nuget_sdk_version) || sdk_version=""
+        if [[ -z "$sdk_version" ]] || ! version_gte "$sdk_version" "11.0.100"; then
+            record nuget $STATUS_WARN ".NET SDK ${sdk_version:-unknown} has no cooldown support (needs >= 11.0.100)"
+            return
+        fi
+    fi
+
+    if [[ "$age" =~ ^[0-9]+$ && "$age" -gt 0 ]]; then
+        record nuget $STATUS_OK "minPublishAgeHours=$age ($(( age / 24 ))d) on source '$key' in $cfg"
+        return
+    fi
+
+    record nuget $STATUS_MISSING "no cooldown configured"
+}
+
 tool_is_relevant() {
     local tool="$1"
     command -v "$tool" &>/dev/null && return 0
@@ -1078,6 +1197,8 @@ tool_is_relevant() {
                find_in_profiles "YARN_NPM_MINIMAL_AGE_GATE=" &>/dev/null && return 0 ;;
         bundler) [[ -n "${BUNDLE_COOLDOWN:-}" ]] && return 0
                find_in_profiles "BUNDLE_COOLDOWN=" &>/dev/null && return 0 ;;
+        nuget) command -v dotnet &>/dev/null && return 0
+               grep -q "minPublishAgeHours" "$(nuget_user_config)" 2>/dev/null && return 0 ;;
     esac
     return 1
 }
@@ -1088,7 +1209,7 @@ do_check() {
 
     local any_checked=false
 
-    for tool in pip uv poetry pdm npm pnpm yarn bun deno cargo bundler; do
+    for tool in pip uv poetry pdm npm pnpm yarn bun deno cargo bundler nuget; do
         if tool_is_relevant "$tool"; then
             any_checked=true
             "check_${tool}"
@@ -1143,7 +1264,7 @@ commands:
   set <tool> <duration>   Configure cooldown for a package manager
   check                   Check cooldown status for all installed tools
 
-tools: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler
+tools: pip, uv, poetry, pdm, npm, pnpm, yarn, bun, deno, cargo, bundler, nuget
 
 duration examples: 3d, "3 days", 7d, 1d
 
@@ -1162,6 +1283,7 @@ where configs are written (all user-wide; project-level configs are not modified
                             (requires Cargo >= 1.100, or cargo-cooldown >= 0.3.1 via 'cargo cooldown <cmd>')
   bundler env var export    /etc/profile.d/cooldowns.sh (or ~/.zshrc / ~/.bashrc)
                             (requires Bundler >= 4.0.13)
+  nuget  NuGet.Config attr  ~/.nuget/NuGet/NuGet.Config (requires .NET SDK >= 11.0.100)
 
   Fallback chooses ~/.zshrc or ~/.bashrc based on $SHELL.
 

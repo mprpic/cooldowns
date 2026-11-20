@@ -749,22 +749,26 @@ source "https://gems.internal.example.com", cooldown: 0 do
 end
 ```
 
+Since Bundler 4.1.0, a `:cooldown:` setting in `~/.gemrc` raises this per-source value too, so `cooldown: 0` only
+exempts a source when gemrc sets no cooldown.
+
 Bundler fails open: it only holds back versions it can prove are too new. Versions lacking a `created_at` timestamp
 (older servers, v1-format registries, some private gems) remain resolvable. See the
 [RubyGems blog announcement](https://blog.rubygems.org/2026/06/03/cooldown-let-new-gems-be-vetted.html) for more
 information.
 
-RubyGems 4.1.0 (in beta since [4.1.0.beta1](https://blog.rubygems.org/2026/09/09/4.1.0.beta1-released.html)) extends
-the cooldown to the `gem` command itself. `gem install`, `gem update` (including `--system`), and `gem outdated` accept
-`--cooldown DAYS`, and the `:cooldown:` setting in `~/.gemrc` sets a default:
+[RubyGems 4.1.0](https://blog.rubygems.org/2026/11/16/4.1.0-released.html) extends the cooldown to the `gem` command
+itself. `gem install`, `gem update` (including `--system`), and `gem outdated` accept `--cooldown DAYS`, and
+the `:cooldown:` setting in `~/.gemrc` sets a default:
 
 ```bash
 gem install rails --cooldown 3
 ```
 
-`gem` and `bundle` also read each other's settings (`:cooldown:` in gemrc and `BUNDLE_COOLDOWN`), with the longer value
-applying, so a cooldown configured for one tool covers the other. `--cooldown 0` bypasses both. Like Bundler, `gem`
-never excludes versions without a known publish time.
+Since 4.1.0, `gem` and `bundle` also read each other's settings (`:cooldown:` in gemrc and `BUNDLE_COOLDOWN`), with the
+longer value applying, so a cooldown configured for one tool covers the other. A configured `0` does not switch off the
+other tool's cooldown; only `--cooldown 0` bypasses both. Like Bundler, `gem` never excludes versions without a known
+publish time.
 
 ## Elixir Ecosystem
 
@@ -799,7 +803,7 @@ end
 To exclude specific repositories from the cooldown (useful when an organization publishes hotfixes to its own repo):
 
 ```bash
-mix hex.config cooldown_exclude_repos '["hexpm:myorg"]'
+mix hex.config cooldown_exclude_repos hexpm:myorg
 ```
 
 Or as an environment variable (comma-separated):
@@ -808,9 +812,15 @@ Or as an environment variable (comma-separated):
 export HEX_COOLDOWN_EXCLUDE_REPOS="hexpm:myorg"
 ```
 
+In `mix.exs`, the same setting takes a list: `hex: [cooldown_exclude_repos: ["hexpm:myorg"]]`. To disable the cooldown
+for a single run, set `HEX_COOLDOWN=0`.
+
 Hex fails open: releases without a `published_at` timestamp (legacy registry data, repos that haven't rebuilt their
-index) remain resolvable. Packages already present in the lockfile bypass the cooldown entirely, and packages locked
-to a version that is retired or has a security advisory are allowed to re-resolve even during cooldown.
+index) remain resolvable, and an invalid duration (such as `72h`) prints a warning and disables the cooldown. The
+cooldown only filters versions being resolved: dependencies installed from `mix.lock` are not affected and a locked
+version stays allowed, but `mix deps.update` still holds back newer releases. If a locked version has a security
+advisory, the cooldown is lifted for that package and its direct dependencies, in the repository it's locked from.
+Since [2.5.2](https://github.com/hexpm/hex/releases/tag/v2.5.2), a retired locked version no longer lifts it.
 
 ## Scala / JVM Ecosystem
 
@@ -917,6 +927,56 @@ that does not provide `published-time` makes the command fail until you set `req
 repository, in which case Composer falls back to the author-supplied `time` field in each package's `composer.json`
 (VCS, path, and artifact repositories always use that fallback). Versions with no date at all are let through rather
 than blocked. See the [config documentation](https://getcomposer.org/doc/06-config.md#cooldown) for more information.
+
+## .NET Ecosystem
+
+### NuGet
+
+[NuGet](https://www.nuget.org/) added a minimum publish age in NuGet 8.0, which ships with the .NET SDK 11.0.100 and
+Visual Studio 18.12. It is set per package source with the `minPublishAgeHours` attribute in `nuget.config`, a whole
+number of hours that defaults to `0`. To set a three-day cooldown for nuget.org:
+
+```xml
+<configuration>
+  <packageSources>
+    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" minPublishAgeHours="72" />
+  </packageSources>
+</configuration>
+```
+
+Or from the command line, for the nuget.org source that the SDK adds to the user-level config (a value of `0` removes
+the setting, and `dotnet nuget add source` accepts the same option for a new source):
+
+```bash
+dotnet nuget update source nuget.org --min-publish-age-hours 72
+```
+
+The cooldown limits which version NuGet picks on its own: `dotnet package add` without `--version`,
+`dotnet package update`, and the Visual Studio package manager. Ordinary restore does not check package ages, so a
+version pinned in a project file or lock file restores however new it is. Floating versions such as `4.*` fail restore
+with [NU1020](https://learn.microsoft.com/en-us/nuget/reference/errors-and-warnings/nu1020) while a cooldown is enabled.
+
+Redefining a source with the same key in a higher-priority `nuget.config` replaces all of its attributes, so a
+redefinition without `minPublishAgeHours` turns the cooldown off for that source. When more than one source offers a
+package, the least strict one wins, so set the attribute on every source.
+
+To exempt packages on all sources, list them under `minPublishAgeExceptions`. A pattern is a case-insensitive package
+ID or a prefix ending in `*`:
+
+```xml
+<configuration>
+  <minPublishAgeExceptions>
+    <package pattern="Contoso.*" />
+  </minPublishAgeExceptions>
+</configuration>
+```
+
+The nearest configuration file that defines `minPublishAgeExceptions` replaces the whole list from lower-priority files.
+
+NuGet fails closed: a source with a minimum age that does not provide a publish date for a version reports an error
+instead of treating the version as old enough. Local folder sources use each `.nupkg` file's modification time. See the
+[minimum package publish age documentation](https://learn.microsoft.com/en-us/nuget/consume-packages/minimum-package-publish-age)
+for more information.
 
 ## Tool Managers
 
@@ -1032,8 +1092,7 @@ update GitHub Actions with the cooldown settings shown in [Dependency update bot
 
 These language ecosystems currently offer no native cooldown support. There's
 a [proposal](https://github.com/golang/go/issues/76485) for Go, but the proposal review group
-placed it on hold in June 2026. [NuGet](https://github.com/NuGet/Home/issues/14657),
-[Julia's Pkg](https://github.com/JuliaLang/Pkg.jl/issues/4670), and
+placed it on hold in June 2026. [Julia's Pkg](https://github.com/JuliaLang/Pkg.jl/issues/4670) and
 [Dart's pub](https://github.com/dart-lang/pub/issues/4791) also have open feature requests.
 Swift Package Manager doesn't have
 native cooldowns either, and no open request exists requesting this feature as of today. Your best bet is
@@ -1215,7 +1274,7 @@ COPY pip-cooldown.sh /etc/profile.d/pip-cooldown.sh
 
 The [`cooldowns.sh`](https://github.com/mprpic/cooldowns/blob/main/cooldowns.sh) script is a small helper that
 configures cooldowns across multiple package managers in a single command and can verify that everything is set up
-correctly. It supports pip, uv, poetry, pdm, npm, pnpm, Yarn, Bun, Deno, Cargo, and Bundler.
+correctly. It supports pip, uv, poetry, pdm, npm, pnpm, Yarn, Bun, Deno, Cargo, Bundler, and NuGet.
 
 ### Setting cooldowns
 
@@ -1241,6 +1300,7 @@ location depends on the tool:
 | deno    | Shell aliases                                       | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
 | cargo   | Env var export (Cargo >= 1.100 or `cargo-cooldown`) | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
 | bundler | Env var export (requires Bundler >= 4.0.13)         | `/etc/profile.d/cooldowns.sh` (or `~/.bashrc`) |
+| nuget   | `nuget.org` source attribute (.NET SDK >= 11.0.100) | `~/.nuget/NuGet/NuGet.Config`                  |
 
 Tools that use profile scripts write to `/etc/profile.d/cooldowns.sh` if the directory exists and is writable,
 otherwise they fall back to `~/.bashrc`.
@@ -1313,13 +1373,13 @@ RUN cooldowns.sh check
 | Hex             | Relative durations (2.5.0+)                | `mix hex.config cooldown 3d` / `HEX_COOLDOWN="3d"`                |
 | Scala Steward   | Relative durations (0.38.0+)               | `updates.cooldown.minimumAge = "3 days"` in `.scala-steward.conf` |
 | Composer        | Relative durations (2.11.0+)               | `policy.cooldown.period = "3 days"` in `composer.json`            |
+| NuGet           | Relative durations (8.0+)                  | `minPublishAgeHours="72"` per source in `nuget.config`            |
 | GitHub Actions  | Third-party only (1-day default)           | `npx actions-up --min-age 3` via `actions-up`                     |
 | Mise            | Relative durations                         | `settings.minimum_release_age = "3d"` in `mise.toml`              |
 | VS Code         | Update delay only (1.125+)                 | `"extensions.autoUpdateDelay": 72` in `settings.json`             |
 | Cursor          | Install and update delay                   | `"extensions.installCooldownHours": 72` in `settings.json`        |
 | Go              | Not available                              | Dependabot/Renovate only                                          |
 | Maven/Gradle    | Not available                              | Dependabot/Renovate only                                          |
-| NuGet           | Not available                              | Dependabot/Renovate only                                          |
 
 ## Bypassing cooldowns
 
@@ -1346,9 +1406,10 @@ disable the cooldown for a single run. The table below summarizes the bypass mec
 | npm-check-updates | Yes              | `cooldown` predicate function in `.ncurc.js` (19.1.0+)                                              |
 | Cargo           | Per-run only       | `CARGO_RESOLVER_INCOMPATIBLE_PUBLISH_AGE=allow cargo update -p <crate> --precise <ver>`             |
 | Bundler         | Per-run only       | `--cooldown 0` disables for entire run; per-source in `Gemfile`                                     |
-| Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories                                                |
+| Hex             | Per-repo only      | `cooldown_exclude_repos` exempts entire repositories; `HEX_COOLDOWN=0` disables for run             |
 | Scala Steward   | Yes                | `dependencyOverrides` with per-dependency `cooldown.minimumAge`                                     |
 | Composer        | Yes                | `policy.cooldown.ignore` list (supports wildcards); `--no-cooldown` disables for run                |
+| NuGet           | Yes                | `minPublishAgeExceptions` patterns (ID or `Prefix.*`); `--version` on `dotnet package add`          |
 | actions-up      | Yes (1.21.0+)      | `--min-age-exclude` regex pattern (e.g. `"^my-org/"`); `--min-age 0` disables for run               |
 | mise            | Yes                | Per-tool `minimum_release_age` or `minimum_release_age_excludes`; pinned versions auto-bypass       |
 
@@ -1429,6 +1490,7 @@ with zero ongoing effort after initial setup. Pick a number, configure it, and s
 <details markdown>
 <summary>Show all entries</summary>
 
+- **2026-11-16**: Added NuGet (.NET) cooldown documentation.
 - **2026-11-12**: Documented Cargo's native `global-min-publish-age` setting (Rust 1.100).
 - **2026-11-04**: Added Composer (PHP) cooldown documentation.
 - **2026-11-04**: Documented micromamba's `exclude_newer` setting (mamba 2.10.0).

@@ -55,6 +55,11 @@ name = "PHP"
 anchor = "php-ecosystem"
 
 [[ecosystem]]
+id = "dotnet"
+name = ".NET"
+anchor = "net-ecosystem"
+
+[[ecosystem]]
 id = "tool-managers"
 name = "Tool managers"
 anchor = "tool-managers"
@@ -273,6 +278,18 @@ since = "2.11.0"
 unit = "duration or seconds"
 three_days = '"3 days"'
 
+# --- .NET ---
+
+[[tool]]
+name = "NuGet"
+ecosystem = "dotnet"
+anchor = "nuget"
+support = "native"
+since = "8.0"
+note = "Automatic version selection only"
+unit = "hours"
+three_days = "72"
+
 # --- Tool managers ---
 
 [[tool]]
@@ -333,12 +350,6 @@ ecosystem = "other"
 anchor = "other-ecosystems"
 support = "none"
 note = "Scala Steward can cover Maven projects"
-
-[[tool]]
-name = "NuGet"
-ecosystem = "other"
-anchor = "other-ecosystems"
-support = "none"
 
 # --- Sidebar groups for sections that are not tools ---
 #
