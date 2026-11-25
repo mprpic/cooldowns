@@ -348,8 +348,9 @@ a distribution whose index entry lacks an `upload-time` field is treated as unav
 Only the classic solver supports the cutoff so far. With the default rattler solver (libmamba before 26.10.0), or with
 libmamba, conda refuses to run and reports that the solver does not support `--exclude-newer`. Support for both is
 still in review ([conda-libmamba-solver#905](https://github.com/conda/conda-libmamba-solver/pull/905),
-[conda-rattler-solver#49](https://github.com/conda/conda-rattler-solver/pull/49)). Until then, switch to the classic
-solver in your `.condarc` to use a cooldown:
+[conda-rattler-solver#49](https://github.com/conda/conda-rattler-solver/pull/49)). Until then, you can switch to the
+classic solver to use a cooldown. The classic solver is much slower than the default solver. An environment with many
+dependencies can take a very long time to solve, or fail to solve at all. Add both settings to your `.condarc`:
 
 ```yaml
 solver: classic
